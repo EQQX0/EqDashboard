@@ -24,4 +24,6 @@ All routes need the bearer token.
 
 `POST /pc/lights` saves an EqRGB phone-remote link (body `{"id","url"}`, blank url clears it) and `POST /pc/lights/link` returns it. The list only says `hasLights`; the link holds a token.
 
+`POST /pc/lights/session` (body `{"id"}`) returns a path like `/pc/lights/r/<session>/`. The agent relays the EqRGB remote there, so the Lights button works from any network. The session id in the path is the only credential on that route (128 bits, ends after 8 hours, 30 sessions at most). The agent adds the PC's token itself, so the app never sees it. Only the remote's own pages and its API are relayed, never `/app.apk`.
+
 Needs `pkg install openssh` in Termux (the setup script already installs it). The agent allows 8 PCs.

@@ -29,6 +29,7 @@ const TOKEN = loadToken();
 // Rate limit: 300 requests per minute per IP, 5 failed auths per minute per IP.
 const hits = new Map();
 const fails = new Map();
+const relayHits = new Map();
 function bump(map, ip, limit) {
   const now = Date.now();
   const arr = (map.get(ip) || []).filter((t) => now - t < 60000);
@@ -103,6 +104,11 @@ function send(res, code, body) {
 
 const server = http.createServer(async (req, res) => {
   const ip = req.headers['cf-connecting-ip'] || req.socket.remoteAddress;
+  // The EqRGB relay authenticates by its unguessable session id in the path, and the page polls often.
+  if (req.url.startsWith('/pc/lights/r/')) {
+    if (bump(relayHits, ip, 1500)) return send(res, 429, { error: 'rate_limited' });
+    if (pc.relay(req, res)) return;
+  }
   if (bump(hits, ip, 300)) return send(res, 429, { error: 'rate_limited' });
 
   const auth = req.headers.authorization || '';

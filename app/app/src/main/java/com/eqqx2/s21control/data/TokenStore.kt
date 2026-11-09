@@ -7,10 +7,7 @@ import androidx.security.crypto.MasterKey
 
 const val DEFAULT_BASE_URL = "https://api.eqqx2.com"
 
-/**
- * The app may load plain http inside the lights popup (EqRGB on the home network), so the system no longer
- * blocks cleartext for the whole app. This check keeps the token and every agent call on https.
- */
+/** The token goes out with every call, so the server address must be https. */
 fun isHttpsUrl(s: String): Boolean = s.trim().startsWith("https://", ignoreCase = true)
 
 /**

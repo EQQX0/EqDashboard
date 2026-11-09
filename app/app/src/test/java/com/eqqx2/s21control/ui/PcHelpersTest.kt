@@ -60,18 +60,24 @@ class PcHelpersTest {
         )) assertNotNull(bad, lightsLinkError(bad, ip))
     }
 
-    @Test fun popupOnlyLoadsTheSamePcAddressAndPort() {
-        val start = "http://192.168.0.174:47822/?t=abcdef123456"
-        assertTrue(lightsRequestAllowed(start, "http://192.168.0.174:47822/api/poll"))
-        assertTrue(lightsRequestAllowed(start, "http://192.168.0.174:47822/"))
-        assertFalse(lightsRequestAllowed(start, "http://192.168.0.174:8080/"))
-        assertFalse(lightsRequestAllowed(start, "http://192.168.0.175:47822/"))
-        assertFalse(lightsRequestAllowed(start, "https://192.168.0.174:47822/"))
-        assertFalse(lightsRequestAllowed(start, "https://evil.example.com/"))
+    @Test fun popupStaysInsideItsOwnRelaySession() {
+        val sid = "0123456789abcdef0123456789abcdef"
+        val start = "https://api.eqqx2.com/pc/lights/r/$sid/"
+        assertTrue(lightsRequestAllowed(start, start))
+        assertTrue(lightsRequestAllowed(start, "https://api.eqqx2.com/pc/lights/r/$sid/api/poll"))
+        assertTrue(lightsRequestAllowed(start, "https://API.eqqx2.com:443/pc/lights/r/$sid/profiles/a.jpg?v=1"))
+        assertFalse(lightsRequestAllowed(start, "https://api.eqqx2.com/status"))
+        assertFalse(lightsRequestAllowed(start, "https://api.eqqx2.com/pc/lights/r/${sid.replace('0', '1')}/"))
+        assertFalse(lightsRequestAllowed(start, "https://api.eqqx2.com/pc/lights/r/$sid/../../status"))
+        assertFalse(lightsRequestAllowed(start, "https://api.eqqx2.com/pc/lights/r/$sid/%2e%2e/status"))
+        assertFalse(lightsRequestAllowed(start, "https://api.eqqx2.com:8443/pc/lights/r/$sid/"))
+        assertFalse(lightsRequestAllowed(start, "http://api.eqqx2.com/pc/lights/r/$sid/"))
+        assertFalse(lightsRequestAllowed(start, "https://evil.example.com/pc/lights/r/$sid/"))
         assertFalse(lightsRequestAllowed(start, "intent://scan/#Intent;end"))
         assertFalse(lightsRequestAllowed(start, "file:///data/data/x"))
         assertFalse(lightsRequestAllowed(start, "not a url"))
-        assertFalse(lightsRequestAllowed("garbage", "http://192.168.0.174:47822/"))
+        assertFalse(lightsRequestAllowed("https://api.eqqx2.com/status/", "https://api.eqqx2.com/status/x"))
+        assertFalse(lightsRequestAllowed("garbage", "https://api.eqqx2.com/pc/lights/r/$sid/"))
     }
 
     @Test fun lightsErrorTexts() {

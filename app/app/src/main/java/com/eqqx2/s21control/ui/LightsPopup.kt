@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -46,20 +47,28 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import java.net.URI
 
-/** True when [request] stays on the same address and port as [start]. Keeps the popup on the one PC. */
+/**
+ * True when [request] is https on the same host and port as [start] and stays under [start]'s path
+ * (the S21's /pc/lights/r/<session>/). Keeps the popup inside its one session.
+ */
 fun lightsRequestAllowed(start: String, request: String): Boolean = try {
     val a = URI(start)
     val b = URI(request)
-    b.scheme.equals("http", ignoreCase = true) && a.host != null && a.host == b.host && effectivePort(a) == effectivePort(b)
+    val prefix = a.rawPath ?: ""
+    a.scheme.equals("https", ignoreCase = true) && b.scheme.equals("https", ignoreCase = true) &&
+        a.host != null && a.host.equals(b.host, ignoreCase = true) && effectivePort(a) == effectivePort(b) &&
+        prefix.startsWith("/pc/lights/r/") && prefix.endsWith("/") && (b.rawPath ?: "").let {
+            it.startsWith(prefix) && !it.contains("..") && !it.contains("%2e", ignoreCase = true)
+        }
 } catch (e: Exception) {
     false
 }
 
-private fun effectivePort(u: URI) = if (u.port == -1) 80 else u.port
+private fun effectivePort(u: URI) = if (u.port == -1) 443 else u.port
 
 private val PopupBg = Color(0xFF14090C)
 
-/** A small window that shows the EqRGB phone remote. Only the PC's own address can load in it. */
+/** A small window that shows the EqRGB phone remote, relayed by the S21. Only that one session's pages can load in it. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun LightsPopup(name: String, url: String, reduce: Boolean, onClose: () -> Unit) {
@@ -114,6 +123,11 @@ fun LightsPopup(name: String, url: String, reduce: Boolean, onClose: () -> Unit)
                                     override fun onPageStarted(view: WebView, u: String?, favicon: Bitmap?) { loading = true }
                                     override fun onPageFinished(view: WebView, u: String?) { loading = false }
                                     override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                                        if (request.isForMainFrame) { failed = true; loading = false }
+                                    }
+
+                                    override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
+                                        // 404 = the session ended, 502 = the PC is off or EqRGB is closed
                                         if (request.isForMainFrame) { failed = true; loading = false }
                                     }
                                 }

@@ -68,6 +68,18 @@ class PcClientTest {
         assertEquals("POST /pc/lights/link", server.takeRequest().let { "${it.method} ${it.path}" })
     }
 
+    @Test fun lightsSessionReturnsTheRelayPath() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"ok":true,"path":"/pc/lights/r/0123456789abcdef0123456789abcdef/"}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true,"path":"https://evil.example.com/"}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true}"""))
+        server.enqueue(MockResponse().setResponseCode(409).setBody("""{"error":"no_lights"}"""))
+        assertEquals("/pc/lights/r/0123456789abcdef0123456789abcdef/", (client.lightsSession(base(), "t", "a1") as PcResult.Ok).value)
+        assertTrue("only the S21's own relay path is accepted", client.lightsSession(base(), "t", "a1") is PcResult.Failure)
+        assertTrue(client.lightsSession(base(), "t", "a1") is PcResult.Failure)
+        assertEquals(PcResult.NoLights, client.lightsSession(base(), "t", "a1"))
+        assertEquals("POST /pc/lights/session", server.takeRequest().let { "${it.method} ${it.path}" })
+    }
+
     @Test fun errorsMapToTypedResults() = runBlocking {
         fun enqueue(code: Int, body: String) = server.enqueue(MockResponse().setResponseCode(code).setBody(body))
         enqueue(400, """{"error":"bad_mac"}""")

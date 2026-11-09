@@ -231,12 +231,13 @@ class PcViewModel(
         }
     }
 
-    /** Fetches the saved link for the Lights button. [done] gets the link or an error text. */
+    /** Opens an EqRGB session through the S21, so it works away from home. [done] gets the address to show or an error text. */
     fun openLights(item: PcItem, done: (url: String?, error: String?) -> Unit) {
         val token = store.token ?: return fail401()
         viewModelScope.launch {
-            when (val r = client.lightsLink(store.baseUrl, token, item.id)) {
-                is PcResult.Ok -> done(r.value, null)
+            val base = store.baseUrl.trim().trimEnd('/')
+            when (val r = client.lightsSession(base, token, item.id)) {
+                is PcResult.Ok -> done(base + r.value, null)
                 PcResult.Unauthorized -> fail401()
                 else -> done(null, pcErrorText(r))
             }

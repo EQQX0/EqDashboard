@@ -9,6 +9,7 @@ const dgram = require('dgram');
 const path = require('path');
 const crypto = require('crypto');
 const { spawn, execFile } = require('child_process');
+const { createRelay } = require('./lights-relay');
 
 const MAC_RE = /^([0-9a-f]{2})([:-]?)([0-9a-f]{2})(?:\2[0-9a-f]{2}){4}$/i;
 const USER_RE = /^[A-Za-z0-9._-]{1,32}$/;
@@ -122,6 +123,18 @@ function createPc(opts = {}) {
     const p = existing(id);
     if (!p.lightsUrl) throw new ApiError(409, 'no_lights');
     return p.lightsUrl;
+  }
+
+  const relay = createRelay({
+    getPc: (id) => { init(); return existing(id); },
+    host: opts.lightsHost,
+    ttlMs: opts.lightsTtlMs,
+  });
+
+  function lightsSession(id) {
+    const path = relay.open(id);
+    if (!path) throw new ApiError(409, 'no_lights');
+    return path;
   }
 
   async function list() {
@@ -288,6 +301,8 @@ function createPc(opts = {}) {
       sendJson(res, 200, { ok: true, item: setLights(b.id, b.url) });
     }),
     'POST /pc/lights/link': wrap(async (req, res) => sendJson(res, 200, { ok: true, url: lightsLink((await readBody(req)).id) })),
+    // Opens the EqRGB remote through the agent: returns a path under /pc/lights/r/ that works from anywhere.
+    'POST /pc/lights/session': wrap(async (req, res) => sendJson(res, 200, { ok: true, path: lightsSession((await readBody(req)).id) })),
     'POST /pc/wake': wrap(async (req, res) => { await wake((await readBody(req)).id); sendJson(res, 200, { ok: true }); }),
     'POST /pc/shutdown': wrap(async (req, res) => { await shutdown((await readBody(req)).id); sendJson(res, 200, { ok: true }); }),
     // Creates the agent's SSH key on first use and returns the public half for the PC's authorized_keys.
@@ -295,8 +310,8 @@ function createPc(opts = {}) {
     'DELETE /pc': wrap(async (req, res, url) => { remove(url.searchParams.get('id')); sendJson(res, 200, { ok: true }); }),
   };
 
-  return { routes, init, list, add, setUser, setLights, lightsLink, remove, wake, shutdown, ensureKey, publicKey };
+  return { routes, relay: (req, res) => relay.handle(req, res), lightsSession, init, list, add, setUser, setLights, lightsLink, remove, wake, shutdown, ensureKey, publicKey };
 }
 
 const instance = createPc();
-module.exports = { createPc, routes: instance.routes, normMac, isPrivateV4, magicPacket };
+module.exports = { createPc, routes: instance.routes, relay: instance.relay, normMac, isPrivateV4, magicPacket };

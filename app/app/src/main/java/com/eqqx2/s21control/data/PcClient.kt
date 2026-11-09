@@ -46,6 +46,9 @@ data class PcKey(val key: String? = null)
 @Serializable
 data class PcLightsLink(val url: String? = null)
 
+@Serializable
+data class PcLightsSession(val path: String? = null)
+
 sealed interface PcResult<out T> {
     data class Ok<T>(val value: T) : PcResult<T>
     data object Unauthorized : PcResult<Nothing>
@@ -124,6 +127,13 @@ class PcClient(http: OkHttpClient = OkHttpClient()) {
         call(baseUrl, token, "pc/lights/link", { it.post(idBody(id)) }) {
             val u = pcJson.decodeFromString(PcLightsLink.serializer(), it).url
             if (u.isNullOrBlank()) PcResult.NoLights else PcResult.Ok(u)
+        }
+
+    /** Asks the S21 to relay the EqRGB remote. Returns a path like /pc/lights/r/<session>/ on the S21's own address. */
+    suspend fun lightsSession(baseUrl: String, token: String, id: String): PcResult<String> =
+        call(baseUrl, token, "pc/lights/session", { it.post(idBody(id)) }) {
+            val p = pcJson.decodeFromString(PcLightsSession.serializer(), it).path
+            if (p.isNullOrBlank() || !p.startsWith("/pc/lights/r/")) PcResult.Failure("The S21 sent a lights address the app doesn't recognise") else PcResult.Ok(p)
         }
 
     suspend fun wake(baseUrl: String, token: String, id: String): PcResult<Unit> =
