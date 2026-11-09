@@ -1,10 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/sh
 # Keeps the Samsung server agent and the Cloudflare tunnel alive. Run every minute from cron:
-#   * * * * * sh $HOME/s21-server/termux/watchdog.sh
+#   * * * * * sh $HOME/samsung-server/termux/watchdog.sh
 # Only touches the Samsung server agent (matched by working folder) and cloudflared.
 # Your other apps (gym, eq, nginx) are not started or stopped here.
-AGENT_DIR="$HOME/s21-server/agent"
-LOG="$HOME/s21-server/watchdog.log"
+AGENT_DIR="$HOME/samsung-server/agent"
+LOG="$HOME/samsung-server/watchdog.log"
 PORT="${PORT:-8787}"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
@@ -22,7 +22,7 @@ case "$code" in
       [ "$(readlink /proc/$p/cwd 2>/dev/null)" = "$AGENT_DIR" ] && kill "$p"
     done
     sleep 1
-    (cd "$AGENT_DIR" && nohup node server.js >> "$HOME/s21-server/agent.log" 2>&1 &)
+    (cd "$AGENT_DIR" && nohup node server.js >> "$HOME/samsung-server/agent.log" 2>&1 &)
     ;;
 esac
 

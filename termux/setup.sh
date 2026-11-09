@@ -6,7 +6,7 @@ pkg install -y nodejs termux-api termux-services cloudflared aria2 ffmpeg python
 pip install yt-dlp
 
 # Agent location
-mkdir -p ~/s21-server
+mkdir -p ~/samsung-server
 
 
 echo "Done. Copy start-all.example.sh to ~/.termux/boot/start-all.sh (merge with your own boot script if you have one), chmod +x it, then run it."

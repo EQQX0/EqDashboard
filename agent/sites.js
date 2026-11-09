@@ -243,7 +243,7 @@ function createSites(opts = {}) {
   }
 
   async function handlePublic(req, res) {
-    res.setHeader('X-S21-Site', '1');
+    res.setHeader('X-Samsung-Site', '1');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     const ip = req.headers['cf-connecting-ip'] || req.socket.remoteAddress;
@@ -584,7 +584,7 @@ function createSites(opts = {}) {
         }, (resp) => {
           resp.resume();
           const status = resp.statusCode;
-          const ours = resp.headers['x-s21-site'] === '1';
+          const ours = resp.headers['x-samsung-site'] === '1';
           if (status >= 200 && status < 400) fin({ reachable: true, status, error: null });
           else if (status === 404 && ours) fin({ reachable: true, status, error: null });
           else if (status >= 500) fin({ reachable: false, status, error: `http_${status}` });

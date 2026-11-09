@@ -10,7 +10,7 @@ const { spawn } = require('child_process');
 
 const TOKEN = 'test-token-' + Math.random().toString(16).slice(2);
 const SERVER = path.join(__dirname, '..', 'server.js');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-http-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-http-'));
 const cleanups = [];
 test.after(async () => {
   for (const c of cleanups) await c();

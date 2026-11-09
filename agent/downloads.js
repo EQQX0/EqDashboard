@@ -185,7 +185,7 @@ function createDownloads(opts = {}) {
   function rpc(method, params = []) {
     return new Promise((resolve, reject) => {
       const full = secret ? [`token:${secret}`, ...params] : params;
-      const body = JSON.stringify({ jsonrpc: '2.0', id: 's21', method, params: full });
+      const body = JSON.stringify({ jsonrpc: '2.0', id: 'samsung', method, params: full });
       const u = new URL(ARIA_URL);
       const req = http.request({
         hostname: u.hostname, port: u.port || 80, path: u.pathname + u.search, method: 'POST', agent: false, timeout: 4000,

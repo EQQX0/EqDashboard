@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "S21Control"
+rootProject.name = "SamsungServer"
 include(":app")

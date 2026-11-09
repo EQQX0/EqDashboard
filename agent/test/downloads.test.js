@@ -9,7 +9,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { createDownloads, parseSource, chooseEngine, sourceLabel } = require('../downloads');
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-dl-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-dl-'));
 const FAKE_YT = path.join(__dirname, '..', 'testlib', 'fake-ytdlp.js');
 const SECRET = 'sekret';
 const cleanups = [];

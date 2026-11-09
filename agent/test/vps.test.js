@@ -8,7 +8,7 @@ const path = require('path');
 const { createVps, KEY_RE, NAME_RE } = require('../vps');
 
 const FAKE = path.join(__dirname, '..', 'testlib', 'fake-proot.js');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-vps-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-vps-'));
 const cleanups = [];
 test.after(async () => {
   for (const c of cleanups) await c();
@@ -35,11 +35,11 @@ function setup(extra = {}) {
   delete process.env.FAKE_PROOT_FAIL;
   const vps = createVps({
     dataDir: path.join(dir, 'data'), prootCmd: [process.execPath, FAKE], minFree: 0,
-    portBase: (portBase += 10), startTimeoutMs: 8000, ...extra,
+    rootfsDir: path.join(dir, 'proot'), portBase: (portBase += 10), startTimeoutMs: 8000, ...extra,
   });
   vps.init();
   cleanups.push(async () => vps.stopAll());
-  return { vps, dir, marker: (n) => path.join(dir, 'proot', 's21-' + n) };
+  return { vps, dir, marker: (n) => path.join(dir, 'proot', 'samsung-' + n) };
 }
 const ready = (vps, name) => until(async () => {
   const it = (await vps.list()).items.find((i) => i.name === name);
@@ -174,6 +174,17 @@ test('reset password changes the root password, key-only slices refuse', async (
   await vps.stop('kk');
 });
 
+test('a slice made before the rename is still found under its old name', async () => {
+  const { vps, dir, marker } = setup();
+  await vps.create({ name: 'old', distro: 'debian' });
+  await ready(vps, 'old');
+  await vps.stop('old');
+  const legacy = path.join(dir, 'proot', 's21-old');
+  fs.renameSync(marker('old'), legacy);
+  await vps.remove('old');
+  assert.ok(!fs.existsSync(legacy), 'removed through the old name');
+});
+
 test('delete stops the slice, removes the distro and forgets it', async () => {
   const { vps, marker } = setup();
   await vps.create({ name: 'gone', distro: 'debian' });
@@ -194,7 +205,7 @@ test('metadata survives a restart; stale running and creating are fixed up', asy
   data.slices.keep.status = 'running'; data.slices.keep.pid = 2147483000; // dead pid
   data.slices.half = { ...data.slices.keep, name: 'half', status: 'creating', pid: null, port: 1 };
   fs.writeFileSync(file, JSON.stringify(data));
-  const again = createVps({ dataDir: path.join(dir, 'data'), prootCmd: [process.execPath, FAKE], minFree: 0 });
+  const again = createVps({ dataDir: path.join(dir, 'data'), rootfsDir: path.join(dir, 'proot'), prootCmd: [process.execPath, FAKE], minFree: 0 });
   again.init();
   const items = (await again.list()).items;
   assert.equal(items.find((i) => i.name === 'keep').status, 'stopped');

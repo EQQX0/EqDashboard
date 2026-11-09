@@ -1,6 +1,6 @@
 # Downloads
 
-The agent downloads links for you and saves them in `~/s21-cloud/downloads`, so they appear in the Files tab.
+The agent downloads links for you and saves them in `~/samsung-cloud/downloads`, so they appear in the Files tab.
 
 Direct links, torrents and magnets use aria2. Video pages use yt-dlp. Install both once in Termux:
 

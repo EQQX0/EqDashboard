@@ -1,7 +1,7 @@
 'use strict';
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('s21', {
+contextBridge.exposeInMainWorld('samsung', {
   getConfig: () => ipcRenderer.invoke('cfg:get'),
   signIn: (url, token) => ipcRenderer.invoke('cfg:set', url, token),
   importPair: () => ipcRenderer.invoke('cfg:import'),

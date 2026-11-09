@@ -44,7 +44,7 @@ if (cmd === 'list') {
       if (pw) meta.passwords.push(pw[1]);
       meta.script = data;
       fs.writeFileSync(marker(alias), JSON.stringify(meta));
-      console.log('s21-setup-done');
+      console.log('samsung-setup-done');
     });
   }
 } else {

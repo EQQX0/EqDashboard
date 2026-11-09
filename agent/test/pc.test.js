@@ -8,7 +8,7 @@ const dgram = require('dgram');
 const path = require('path');
 const { createPc, normMac, isPrivateV4, magicPacket } = require('../pc');
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-pc-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-pc-'));
 const cleanups = [];
 test.after(async () => { for (const c of cleanups) await c(); fs.rmSync(tmp, { recursive: true, force: true }); });
 const FAKE_SSH = path.join(__dirname, '..', 'testlib', 'fake-ssh.js');

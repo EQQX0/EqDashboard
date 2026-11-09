@@ -32,7 +32,7 @@ Site behaviour: directories serve `index.html`, `404.html` is used if present, a
 
 ```sh
 sed -i '/^  - service: http_status:404/i\  - hostname: "*.yourdomain.com"\n    service: http://127.0.0.1:8790' ~/.cloudflared/config.yml
-cloudflared tunnel route dns samsung-server "*.yourdomain.com"   # the tunnel is named s21 on older setups
+cloudflared tunnel route dns samsung-server "*.yourdomain.com"
 ```
 
 Then restart cloudflared:

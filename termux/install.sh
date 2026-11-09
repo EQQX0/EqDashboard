@@ -6,10 +6,23 @@
 set -e
 DOMAIN="${1:-$DOMAIN}"
 REPO="${REPO:-https://github.com/EQQX0/EqDashboard.git}"
-DIR="$HOME/s21-server"
+DIR="$HOME/samsung-server"
 
 if [ "$DOMAIN" = "yourdomain.com" ]; then
   echo "Replace yourdomain.com with your real domain (or leave it off), then run it again."; exit 1
+fi
+
+# A phone set up before the project was renamed keeps working: move its old folder and leave a link at the old path.
+OLD="$HOME/s21-server"
+if [ -d "$OLD" ] && [ ! -L "$OLD" ] && [ ! -e "$DIR" ]; then
+  echo "==> Moving the old folder to $DIR"
+  for p in $(pgrep -f "node server.js" 2>/dev/null); do
+    [ "$(readlink /proc/$p/cwd 2>/dev/null)" = "$OLD/agent" ] && kill "$p"
+  done
+  mv "$OLD" "$DIR" && ln -s "$DIR" "$OLD"
+  for f in "$HOME"/.termux/boot/*.sh; do
+    [ -f "$f" ] && sed -i 's#/s21-server#/samsung-server#g; s#tunnel run s21#tunnel run#' "$f"
+  done
 fi
 
 # Termux is upgraded as a whole with apt-get, which works even when curl or git are half-updated and broken.
@@ -63,7 +76,7 @@ if [ -s "$DIR/agent/.token" ]; then
   echo "Token (paste it into the app, keep it private):"
   cat "$DIR/agent/.token"; echo
 else
-  echo "The agent did not start. Look at: tail ~/s21-server/agent.log"
+  echo "The agent did not start. Look at: tail ~/samsung-server/agent.log"
 fi
 if [ -n "$DOMAIN" ]; then
   echo "Server address for the app: https://api.$DOMAIN"

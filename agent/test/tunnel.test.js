@@ -9,7 +9,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { createTunnel, parseIngress, serviceTarget } = require('../tunnel');
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-tunnel-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-tunnel-'));
 const cleanups = [];
 test.after(async () => {
   for (const c of cleanups) await c();
@@ -158,7 +158,7 @@ test('GET /tunnel/routes needs the token and returns the listing', async () => {
 
 test('sites find their domain from the tunnel wildcard that points at the sites port', () => {
   const { domainFromTunnel } = require('../sites');
-  const cfg = path.join(os.tmpdir(), 's21-cfg-' + process.pid + '.yml');
+  const cfg = path.join(os.tmpdir(), 'samsung-cfg-' + process.pid + '.yml');
   fs.writeFileSync(cfg, 'tunnel: x\ningress:\n  - hostname: api.example.com\n    service: http://127.0.0.1:8787\n  - hostname: "*.example.com"\n    service: http://127.0.0.1:8790\n  - service: http_status:404\n');
   assert.strictEqual(domainFromTunnel(cfg, 8790), 'example.com');
   assert.strictEqual(domainFromTunnel(cfg, 9999), '', 'a wildcard for another port is not ours');

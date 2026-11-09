@@ -7,7 +7,7 @@ const path = require('path');
 const zip = require('../zip');
 const { buildZip } = require('../testlib/zipbuilder');
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-zip-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-zip-'));
 test.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 let n = 0;

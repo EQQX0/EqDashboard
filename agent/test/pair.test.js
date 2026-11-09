@@ -9,7 +9,7 @@ const { parseArgs, buildPairFile, run } = require('../pair');
 const TOKEN = 'unit-test-token-0123456789abcdef';
 
 function setup(env = { AGENT_TOKEN: TOKEN }) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 's21pair-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'samsungpair-'));
   const out = [];
   const err = [];
   const call = (argv) => run({
@@ -24,8 +24,8 @@ test('parseArgs has no built-in url', () => {
 });
 
 test('parseArgs custom url, out and force', () => {
-  const a = parseArgs(['--url', 'https://x.example', '--out', 'f.s21', '--force']);
-  assert.deepStrictEqual([a.url, a.out, a.force], ['https://x.example', 'f.s21', true]);
+  const a = parseArgs(['--url', 'https://x.example', '--out', 'f.pair', '--force']);
+  assert.deepStrictEqual([a.url, a.out, a.force], ['https://x.example', 'f.pair', true]);
 });
 
 test('buildPairFile content parses to expected object', () => {
@@ -52,7 +52,7 @@ test('prefers storage/downloads when it exists', () => {
 
 test('custom url is written', () => {
   const s = setup();
-  const out = path.join(s.dir, 'c.s21');
+  const out = path.join(s.dir, 'c.pair');
   assert.strictEqual(s.call(['--url', 'https://custom.example', '--out', out]), 0);
   assert.strictEqual(JSON.parse(fs.readFileSync(out, 'utf8')).url, 'https://custom.example');
 });
@@ -76,7 +76,7 @@ test('refuses when no token is available', () => {
 
 test('refuses to overwrite without --force, allows with it', () => {
   const s = setup();
-  const out = path.join(s.dir, 'c.s21');
+  const out = path.join(s.dir, 'c.pair');
   fs.writeFileSync(out, 'old');
   assert.strictEqual(s.call(['--url', 'https://api.example.com', '--out', out]), 1);
   assert.strictEqual(fs.readFileSync(out, 'utf8'), 'old');

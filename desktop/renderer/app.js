@@ -50,9 +50,9 @@ function toast(msg) {
 }
 
 async function call(req) {
-  const r = await window.s21.api(req);
+  const r = await window.samsung.api(req);
   if (r.ok) return r.data;
-  if (r.status === 401) { await window.s21.signOut(); location.reload(); }
+  if (r.status === 401) { await window.samsung.signOut(); location.reload(); }
   throw new Error(r.error);
 }
 // Run an action, show errors as toasts, then redraw.
@@ -92,7 +92,7 @@ const screens = {
         : h('div', { class: 'grow name' }, e.name),
       h('span', { class: 'muted' }, e.type === 'dir' ? '' : fmtBytes(e.size)),
       e.type === 'dir' ? null : h('button', { class: 'btn', onclick: () => act(async () => {
-        const r = await window.s21.saveFile(path ? `${path}/${e.name}` : e.name);
+        const r = await window.samsung.saveFile(path ? `${path}/${e.name}` : e.name);
         if (!r.ok && r.error !== 'cancelled') throw new Error(r.error);
       }) }, 'Save'),
       h('button', { class: 'btn danger', onclick: () => confirm(`Delete ${e.name}?`) && act(() => call({ method: 'DELETE', path: 'files', query: { path: path ? `${path}/${e.name}` : e.name } }), 'Deleted') }, 'Delete')));
@@ -192,11 +192,11 @@ function buildNav() {
   for (const t of Object.keys(TITLES)) {
     nav.append(h('button', { 'data-tab': t, onclick: () => { state.tab = t; load(); } }, icon(t), h('span', {}, TITLES[t])));
   }
-  nav.append(h('div', { class: 'spacer' }), h('button', { onclick: async () => { await window.s21.signOut(); location.reload(); } }, h('span', {}, 'Sign out')));
+  nav.append(h('div', { class: 'spacer' }), h('button', { onclick: async () => { await window.samsung.signOut(); location.reload(); } }, h('span', {}, 'Sign out')));
 }
 
 async function boot() {
-  const cfg = await window.s21.getConfig();
+  const cfg = await window.samsung.getConfig();
   if (!cfg.signedIn) {
     $('login').hidden = false; $('url').value = cfg.baseUrl || '';
     // Look for a pairing file once, then only until one is found or the person chooses to type. One check at a time.
@@ -205,7 +205,7 @@ async function boot() {
       if (looking || dismissed) return;
       looking = true;
       try {
-        const r = await window.s21.findPair();
+        const r = await window.samsung.findPair();
         if (r.found) {
           $('foundText').textContent = `Found ${r.name} in ${r.folder} for ${r.host}.`;
           $('found').hidden = false; clearInterval(poll); poll = null;
@@ -215,17 +215,17 @@ async function boot() {
     let poll = setInterval(look, 3000);
     look();
     $('useFound').addEventListener('click', async () => {
-      try { await window.s21.usePair(); location.reload(); }
+      try { await window.samsung.usePair(); location.reload(); }
       catch (e) { $('loginErr').textContent = e.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
     });
     $('skipFound').addEventListener('click', () => { dismissed = true; $('found').hidden = true; if (poll) { clearInterval(poll); poll = null; } });
     $('importBtn').addEventListener('click', async () => {
-      try { const r = await window.s21.importPair(); if (r.ok) location.reload(); }
+      try { const r = await window.samsung.importPair(); if (r.ok) location.reload(); }
       catch (e) { $('loginErr').textContent = e.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
     });
     $('loginForm').addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      try { await window.s21.signIn($('url').value, $('token').value); location.reload(); }
+      try { await window.samsung.signIn($('url').value, $('token').value); location.reload(); }
       catch (e) { $('loginErr').textContent = e.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
     });
     return;

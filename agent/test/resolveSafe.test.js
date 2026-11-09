@@ -6,7 +6,7 @@ const os = require('os');
 const path = require('path');
 const { resolveSafe } = require('../files');
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-rs-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-rs-'));
 const root = path.join(tmp, 'root');
 const outside = path.join(tmp, 'outside');
 fs.mkdirSync(path.join(root, 'sub'), { recursive: true });

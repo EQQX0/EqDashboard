@@ -1,7 +1,7 @@
 {
-  "name": "s21-control-desktop",
+  "name": "samsung-server-desktop",
   "productName": "Samsung Server",
-  "version": "0.12.4",
+  "version": "0.13.0",
   "description": "Windows client for the Samsung home server",
   "main": "main.js",
   "author": "EQQX0",
@@ -16,7 +16,7 @@
     "electron-builder": "25.1.8"
   },
   "build": {
-    "appId": "com.eqqx2.s21control.desktop",
+    "appId": "com.eqqx2.samsungserver.desktop",
     "productName": "Samsung Server",
     "directories": {
       "output": "dist"

@@ -26,16 +26,16 @@ Open Termux and run:
 
 ```sh
 pkg install -y git
-git clone https://github.com/EQQX0/EqDashboard ~/s21-server
-bash ~/s21-server/termux/setup.sh
+git clone https://github.com/EQQX0/EqDashboard ~/samsung-server
+bash ~/samsung-server/termux/setup.sh
 ```
 
 The setup script installs Node.js, cloudflared, aria2, ffmpeg, yt-dlp, Caddy, proot-distro and OpenSSH. It takes a few minutes.
 
-The agent lives in `~/s21-server/agent`. Start it once to create your token:
+The agent lives in `~/samsung-server/agent`. Start it once to create your token:
 
 ```sh
-cd ~/s21-server/agent
+cd ~/samsung-server/agent
 node server.js
 ```
 
@@ -44,7 +44,7 @@ It prints that it is listening on `127.0.0.1:8787` and writes the token to `agen
 ## 3. Connect a domain with Cloudflare Tunnel
 
 ```sh
-bash ~/s21-server/termux/tunnel-setup.sh yourdomain.com
+bash ~/samsung-server/termux/tunnel-setup.sh yourdomain.com
 ```
 
 A browser link appears. Open it, pick your domain and approve. The script creates a tunnel named `samsung-server` and points `api.yourdomain.com` at the agent.
@@ -52,14 +52,14 @@ A browser link appears. Open it, pick your domain and approve. The script create
 Start the agent and the tunnel, then test from another network (mobile data works):
 
 ```sh
-cd ~/s21-server/agent && nohup node server.js >> ~/s21-server/agent.log 2>&1 &
+cd ~/samsung-server/agent && nohup node server.js >> ~/samsung-server/agent.log 2>&1 &
 nohup cloudflared tunnel run >> ~/cloudflared.log 2>&1 &
-curl -H "Authorization: Bearer $(cat ~/s21-server/agent/.token)" https://api.yourdomain.com/status
+curl -H "Authorization: Bearer $(cat ~/samsung-server/agent/.token)" https://api.yourdomain.com/status
 ```
 
 You should see JSON with CPU, memory and storage. Without the token the answer is 401.
 
-If a tunnel named `samsung-server` already exists (`s21` on older setups), skip the script. Add a hostname to `~/.cloudflared/config.yml` and run `cloudflared tunnel route dns samsung-server api.yourdomain.com`.
+If a tunnel named `samsung-server` already exists, skip the script. Add a hostname to `~/.cloudflared/config.yml` and run `cloudflared tunnel route dns samsung-server api.yourdomain.com`.
 
 ## 4. Keep it running
 
@@ -69,23 +69,23 @@ If a tunnel named `samsung-server` already exists (`s21` on older setups), skip 
 
 ```sh
 mkdir -p ~/.termux/boot
-cp ~/s21-server/termux/start-all.example.sh ~/.termux/boot/start-all.sh
+cp ~/samsung-server/termux/start-all.example.sh ~/.termux/boot/start-all.sh
 chmod +x ~/.termux/boot/start-all.sh
 ```
 
-- Optional: restart a crashed agent or tunnel every minute with the watchdog. Install cron (`pkg install cronie`), run `crontab -e` and add `* * * * * sh $HOME/s21-server/termux/watchdog.sh`.
+- Optional: restart a crashed agent or tunnel every minute with the watchdog. Install cron (`pkg install cronie`), run `crontab -e` and add `* * * * * sh $HOME/samsung-server/termux/watchdog.sh`.
 
 Use only one boot script. Two scripts that both start Node or cloudflared fight each other.
 
 ## 5. Install the app and sign in
 
 1. On the phone that will run the app, download `app.apk` from the [latest release](https://github.com/EQQX0/EqDashboard/releases/latest) and install it. Android asks you to allow installs from your browser.
-2. Enter `https://api.yourdomain.com` as the server URL and paste your token. Read it in Termux with `cat ~/s21-server/agent/.token`.
+2. Enter `https://api.yourdomain.com` as the server URL and paste your token. Read it in Termux with `cat ~/samsung-server/agent/.token`.
 
 To skip typing the token, run this in Termux and import the file from the sign-in screen:
 
 ```sh
-cd ~/s21-server/agent
+cd ~/samsung-server/agent
 node pair.js --url https://api.yourdomain.com
 ```
 
@@ -97,7 +97,7 @@ The Overview screen now shows your phone.
 
 | Module | What to do |
 |---|---|
-| Files | Works at once. Files live in `~/s21-cloud`. Set `FILES_ROOT` to move them. See [README-files](../agent/README-files.md). |
+| Files | Works at once. Files live in `~/samsung-cloud`. Set `FILES_ROOT` to move them. See [README-files](../agent/README-files.md). |
 | Downloads | Works once `setup.sh` has finished. See [README-downloads](../agent/README-downloads.md). |
 | Sites | Set `SITES_DOMAIN=yourdomain.com` before starting the agent, then add a wildcard hostname to the tunnel. Sites stay off until you set the domain. See [README-sites](../agent/README-sites.md). |
 | VPS | Works at once. Each slice gets an SSH port from 2201. See [README-vps](../agent/README-vps.md). |
@@ -108,7 +108,7 @@ Set environment variables in the line that starts the agent, for example `SITES_
 
 ## 7. Updates
 
-The app shows a card when a new version exists. It downloads the file, checks its SHA-256 and asks before installing. The agent has its own update card: it downloads the agent files, checks them, keeps your token and data, and restarts itself. A backup of the old agent stays in `~/s21-server/agent-backup`.
+The app shows a card when a new version exists. It downloads the file, checks its SHA-256 and asks before installing. The agent has its own update card: it downloads the agent files, checks them, keeps your token and data, and restarts itself. A backup of the old agent stays in `~/samsung-server/agent-backup`.
 
 Both look at the repository named in `UPDATE_REPO` (app) and `repository` in `agent/package.json` (agent). That is `EQQX0/EqDashboard` until you change it.
 
@@ -148,6 +148,6 @@ The script needs Gradle and the Android SDK. Edit the `$Gradle` path at the top 
 
 - **`CANNOT LINK EXECUTABLE "curl"` or git fails to start in Termux:** Termux is half-updated. Run `apt update && apt full-upgrade -y`, then run the installer again. The installer does this upgrade itself, but it can't run if `curl` is already broken and can't download it.
 - **401 from the tunnel:** the token is wrong or missing. Read `agent/.token` again.
-- **502 or 1033 from Cloudflare:** the agent or `cloudflared` is not running. Check `~/s21-server/agent.log` and `~/cloudflared.log`.
+- **502 or 1033 from Cloudflare:** the agent or `cloudflared` is not running. Check `~/samsung-server/agent.log` and `~/cloudflared.log`.
 - **The app says the server address must be https:** use the `https://` hostname from your tunnel. Plain `http://` is refused.
 - **The agent stops when the screen is off:** Termux battery use is not Unrestricted, or `termux-wake-lock` did not run.

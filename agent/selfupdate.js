@@ -12,8 +12,8 @@ const crypto = require('crypto');
 const { spawn, execFile } = require('child_process');
 const { extract } = require('./zip');
 
-// samsung-agent-X.Y.Z.zip is the name now; s21-agent-X.Y.Z.zip is the old name that agents before 0.11.2 look for.
-const ASSET_RE = /^(?:samsung|s21)-agent-(\d+\.\d+\.\d+)\.zip$/;
+// The release carries samsung-agent-X.Y.Z.zip.
+const ASSET_RE = /^samsung-agent-(\d+\.\d+\.\d+)\.zip$/;
 const MAX_ZIP = 8 * 1024 * 1024;
 const COPY_RULES = [
   { dir: 'agent', test: (n) => /^[\w-]+\.js$/.test(n) || n === 'package.json' || /^README-[\w-]+\.md$/.test(n), to: '.' },
@@ -131,7 +131,7 @@ function createSelfUpdate(opts = {}) {
   async function apply() {
     if (running) throw new ApiError(409, 'busy');
     running = true;
-    const work = await fsp.mkdtemp(path.join(os.tmpdir(), 's21-upd-'));
+    const work = await fsp.mkdtemp(path.join(os.tmpdir(), 'samsung-upd-'));
     try {
       const current = currentVersion();
       const l = await latest();

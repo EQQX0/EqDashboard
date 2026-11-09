@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const { createSelfUpdate, cmpVersion } = require('../selfupdate');
 const { crc32 } = require('../zip');
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-su-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-su-'));
 const cleanups = [];
 test.after(async () => {
   for (const c of cleanups) await c();
@@ -48,14 +48,14 @@ function makeZip(files) {
 const goodFiles = (v) => ({
   'agent/server.js': 'module.exports = "new server " + ' + JSON.stringify(v) + ';\n',
   'agent/extra.js': 'module.exports = 1;\n',
-  'agent/package.json': JSON.stringify({ name: 's21-agent', version: v }),
+  'agent/package.json': JSON.stringify({ name: 'samsung-agent', version: v }),
   'agent/README-extra.md': '# extra\n',
   'termux/new.sh': 'echo hi\n',
   'agent/.token': 'must not be copied',
   'agent/data/secret.json': '{}',
 });
 
-async function fakeGithub(zipBuf, { name = 's21-agent-0.8.0.zip', digest, status = 200 } = {}) {
+async function fakeGithub(zipBuf, { name = 'samsung-agent-0.8.0.zip', digest, status = 200 } = {}) {
   let hits = 0;
   const srv = http.createServer((req, res) => {
     hits++;

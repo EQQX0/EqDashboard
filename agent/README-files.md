@@ -6,7 +6,7 @@ Served by `server.js` next to `/status`. Every route needs `Authorization: Beare
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `FILES_ROOT` | `~/s21-cloud` | Storage root. Created on startup. |
+| `FILES_ROOT` | `~/samsung-cloud` | Storage root. Created on startup. |
 | `MAX_UPLOAD_BYTES` | `5368709120` | Largest accepted upload body (5 GiB). |
 
 ## Endpoints

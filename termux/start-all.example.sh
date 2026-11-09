@@ -4,10 +4,10 @@
 termux-wake-lock
 # Stop only our own processes. Node apps are matched by working folder, never by name alone.
 stop_node_in() { for p in $(pgrep -f "node server.js"); do [ "$(readlink /proc/$p/cwd)" = "$1" ] && kill $p; done; }
-stop_node_in "$HOME/s21-server/agent"
+stop_node_in "$HOME/samsung-server/agent"
 pkill cloudflared 2>/dev/null
 sleep 2
-(cd ~/s21-server/agent && nohup node server.js >> ~/s21-server/agent.log 2>&1 &)
+(cd ~/samsung-server/agent && nohup node server.js >> ~/samsung-server/agent.log 2>&1 &)
 nohup cloudflared tunnel run >> ~/cloudflared.log 2>&1 &
 # Add your other services below, each started in a subshell with its own folder, e.g.:
 # (cd ~/gym/api && set -a && . ~/gym/.env && set +a && nohup node server.js >> ~/gym/api.log 2>&1 &)

@@ -8,7 +8,7 @@
         android:allowBackup="false"
         android:label="Samsung Server"
         android:usesCleartextTraffic="false"
-        android:theme="@style/Theme.S21Control">
+        android:theme="@style/Theme.SamsungServer">
         <activity
             android:name=".MainActivity"
             android:exported="true"

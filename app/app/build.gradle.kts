@@ -17,11 +17,11 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "com.eqqx2.s21control"
+    namespace = "com.eqqx2.samsungserver"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.eqqx2.s21control"
+        applicationId = "com.eqqx2.samsungserver"
         minSdk = 26
         targetSdk = 35
         versionCode = appVersionCode

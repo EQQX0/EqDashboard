@@ -12,7 +12,7 @@ const { buildZip } = require('../testlib/zipbuilder');
 const TOKEN = 'test-token-' + Math.random().toString(16).slice(2);
 const SERVER = path.join(__dirname, '..', 'server.js');
 const DOMAIN = 'example.test';
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-sites-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-sites-'));
 const cleanups = [];
 test.after(async () => {
   for (const c of cleanups) await c();
@@ -112,7 +112,7 @@ test('public site server', async (t) => {
       const r = await pub(sitesPort, '/', { host });
       assert.strictEqual(r.status, 404, host);
       assert.strictEqual(r.text, 'Not found');
-      assert.strictEqual(r.headers['x-s21-site'], '1');
+      assert.strictEqual(r.headers['x-samsung-site'], '1');
     }
     await api(port, 'POST', '/sites/update', { body: { name: 'blog', enabled: false } });
     assert.strictEqual((await pub(sitesPort, '/')).status, 404);
@@ -131,7 +131,7 @@ test('public site server', async (t) => {
       const r = await pub(sitesPort, p);
       assert.strictEqual(r.status, 404, p);
       assert.ok(!r.text.includes('TOPSECRET'), p);
-      assert.strictEqual(r.headers['x-s21-site'], '1');
+      assert.strictEqual(r.headers['x-samsung-site'], '1');
     }
     // raw socket, no client-side normalisation at all
     const raw = await new Promise((resolve) => {
@@ -164,7 +164,7 @@ test('public site server', async (t) => {
     assert.strictEqual(root.headers['x-content-type-options'], 'nosniff');
     assert.strictEqual(root.headers['referrer-policy'], 'strict-origin-when-cross-origin');
     assert.strictEqual(root.headers['cache-control'], 'public, max-age=60');
-    assert.strictEqual(root.headers['x-s21-site'], '1');
+    assert.strictEqual(root.headers['x-samsung-site'], '1');
     assert.strictEqual(root.headers['accept-ranges'], 'bytes');
     const css = await pub(sitesPort, '/style.css');
     assert.strictEqual(css.headers['content-type'], 'text/css; charset=utf-8');
@@ -194,12 +194,12 @@ test('public site server', async (t) => {
     const c = await pub(sitesPort, '/nope');
     assert.strictEqual(c.status, 404);
     assert.strictEqual(c.text, '<h1>custom</h1>');
-    assert.strictEqual(c.headers['x-s21-site'], '1');
+    assert.strictEqual(c.headers['x-samsung-site'], '1');
     fs.rmSync(path.join(site, '404.html'));
     const b = await pub(sitesPort, '/nope');
     assert.strictEqual(b.status, 404);
     assert.match(b.text, /404/);
-    assert.strictEqual(b.headers['x-s21-site'], '1');
+    assert.strictEqual(b.headers['x-samsung-site'], '1');
   });
 
   await t.test('etag, range, head, methods', async () => {
@@ -235,7 +235,7 @@ test('public site server', async (t) => {
       const r = await pub(sitesPort, '/', { method: m });
       assert.strictEqual(r.status, 405, m);
       assert.strictEqual(r.headers.allow, 'GET, HEAD');
-      assert.strictEqual(r.headers['x-s21-site'], '1');
+      assert.strictEqual(r.headers['x-samsung-site'], '1');
     }
   });
 });
@@ -253,7 +253,7 @@ test('public rate limit', async () => {
   assert.strictEqual(statuses.filter((s) => s === 429).length, 0);
   const over = await pub(sitesPort, '/', { headers: { 'cf-connecting-ip': '9.9.9.9' } });
   assert.strictEqual(over.status, 429);
-  assert.strictEqual(over.headers['x-s21-site'], '1');
+  assert.strictEqual(over.headers['x-samsung-site'], '1');
   assert.strictEqual((await pub(sitesPort, '/', { headers: { 'cf-connecting-ip': '8.8.8.8' } })).status, 200);
 });
 
@@ -503,7 +503,7 @@ test('check', async (t) => {
     const r = await check();
     assert.strictEqual(r.json.reachable, true);
     assert.strictEqual(r.json.status, 302);
-    reply = { status: 404, headers: { 'x-s21-site': '1' } };
+    reply = { status: 404, headers: { 'x-samsung-site': '1' } };
     assert.deepStrictEqual((await check()).json, { hostname: 'blog.' + DOMAIN, reachable: true, status: 404, error: null });
   });
 

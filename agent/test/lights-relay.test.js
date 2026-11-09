@@ -9,7 +9,7 @@ const { createPc } = require('../pc');
 const { rewriteHtml, rewriteJson } = require('../lights-relay');
 
 const TOKEN = 'abcdef123456';
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 's21-lr-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'samsung-lr-'));
 const closers = [];
 test.after(async () => { for (const c of closers) await c(); fs.rmSync(tmp, { recursive: true, force: true }); });
 

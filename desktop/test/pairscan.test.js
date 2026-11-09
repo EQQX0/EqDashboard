@@ -24,9 +24,9 @@ test('finds the newest valid pairing file and ignores others', () => {
   assert.strictEqual(path.basename(r.file), 'new.pair');
 });
 
-test('ignores the old .s21 files', () => {
+test('ignores files that are not .pair', () => {
   const a = tmp();
-  fs.writeFileSync(path.join(a, 'old.s21'), good('https://old.example.com'));
+  fs.writeFileSync(path.join(a, 'old.key'), good('https://old.example.com'));
   assert.strictEqual(findPairFile([a]), null);
 });
 
