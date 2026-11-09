@@ -34,20 +34,40 @@ function bump(map, ip, limit) {
 
 function run(cmd, args) {
   return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: 5000 }, (err, stdout) => resolve(err ? null : stdout));
+    execFile(cmd, args, { timeout: 3000 }, (err, stdout) => resolve(err ? null : stdout));
   });
 }
 
-async function status() {
-  const battery = await run('termux-battery-status', []);
-  const df = await run('df', ['-k', process.env.STORAGE_PATH || process.env.HOME || '/']);
-  let storage = null;
-  if (df) {
-    const row = df.trim().split('\n').pop().split(/\s+/);
-    storage = { totalKb: Number(row[1]), usedKb: Number(row[2]), freeKb: Number(row[3]) };
+// Slow phone commands (battery can hang for seconds when the Termux:API app is missing)
+// run in the background; /status only ever returns the last cached values, so it answers instantly.
+let batteryCache = null;
+let storageCache = null;
+let refreshing = false;
+
+async function refreshSlowStatus() {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    const [battery, df] = await Promise.all([
+      run('termux-battery-status', []),
+      run('df', ['-k', process.env.STORAGE_PATH || process.env.HOME || '/']),
+    ]);
+    if (df) {
+      const row = df.trim().split('\n').pop().split(/\s+/);
+      const s = { totalKb: Number(row[1]), usedKb: Number(row[2]), freeKb: Number(row[3]) };
+      if ([s.totalKb, s.usedKb, s.freeKb].every(Number.isFinite)) storageCache = s;
+    }
+    try { batteryCache = battery ? JSON.parse(battery) : null; } catch { batteryCache = null; /* termux-api missing */ }
+  } finally {
+    refreshing = false;
   }
-  let battJson = null;
-  try { battJson = battery ? JSON.parse(battery) : null; } catch { /* termux-api missing */ }
+}
+refreshSlowStatus();
+setInterval(refreshSlowStatus, 20000).unref();
+
+async function status() {
+  const storage = storageCache;
+  const battJson = batteryCache;
   return {
     time: new Date().toISOString(),
     uptimeSec: Math.round(os.uptime()),

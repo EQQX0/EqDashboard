@@ -15,9 +15,9 @@ sealed interface FetchResult {
 
 class AgentClient(private val http: OkHttpClient = OkHttpClient()) {
     private val client: OkHttpClient = http.newBuilder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .callTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .callTimeout(25, TimeUnit.SECONDS)
         .build()
 
     suspend fun fetchStatus(baseUrl: String, token: String): FetchResult =
