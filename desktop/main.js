@@ -3,6 +3,7 @@ const { app, BrowserWindow, ipcMain, safeStorage, shell, dialog } = require('ele
 const fs = require('fs');
 const path = require('path');
 const { createApi, normalizeBase, parsePair } = require('./api');
+const { findPairFile } = require('./pairscan');
 
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
 
@@ -29,7 +30,7 @@ const api = createApi({ getConfig: () => cache() });
 function createWindow() {
   const win = new BrowserWindow({
     width: 1100, height: 760, minWidth: 760, minHeight: 520,
-    backgroundColor: '#0F172A', title: 'Samsung Server', autoHideMenuBar: true,
+    backgroundColor: '#0F172A', icon: path.join(__dirname, 'build', 'icon.png'), title: 'Samsung Server', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -52,6 +53,14 @@ app.whenReady().then(() => {
     if (st.size > 4096) throw new Error('That file is too large to be a pairing file');
     const p = parsePair(fs.readFileSync(r.filePaths[0], 'utf8'));
     writeCfg(p.url, p.token);
+    return { ok: true };
+  });
+  ipcMain.handle('cfg:scan', async () => {
+    const hit = findPairFile(['downloads', 'desktop', 'documents'].map((n) => app.getPath(n)));
+    if (!hit) return { ok: false };
+    writeCfg(hit.url, hit.token);
+    const r = await dialog.showMessageBox({ type: 'question', buttons: ['Delete the file', 'Keep it'], defaultId: 0, cancelId: 1, title: 'Signed in', message: 'Signed in using ' + path.basename(hit.file), detail: 'That file holds your token. Delete it now?' });
+    if (r.response === 0) { try { fs.unlinkSync(hit.file); } catch {} }
     return { ok: true };
   });
   ipcMain.handle('cfg:clear', () => { const c = readCfg(); writeCfg(c.baseUrl, ''); return true; });

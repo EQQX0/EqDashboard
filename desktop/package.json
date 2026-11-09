@@ -9,7 +9,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
-    "dist": "electron-builder --win portable --x64"
+    "dist": "electron-builder --win nsis --x64"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -18,12 +18,40 @@
   "build": {
     "appId": "com.eqqx2.s21control.desktop",
     "productName": "Samsung Server",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "api.js", "renderer/**/*"],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "api.js",
+      "pairscan.js",
+      "renderer/**/*",
+      "build/icon.png"
+    ],
     "win": {
-      "target": [{ "target": "portable", "arch": ["x64"] }],
-      "artifactName": "Samsung-Server-${version}.exe",
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Samsung-Server-Setup-${version}.exe",
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Samsung Server",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": false,
+      "include": "build/installer.nsh"
     }
   }
 }
