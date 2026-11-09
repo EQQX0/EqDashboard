@@ -53,6 +53,7 @@ fun OverviewScreen(
     agentUpdate: AgentUpdatePhase = AgentUpdatePhase.Hidden,
     onAgentUpdate: () -> Unit = {},
     onAgentDismiss: () -> Unit = {},
+    pcSection: @Composable () -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -122,6 +123,7 @@ fun OverviewScreen(
                 }
             }
         }
+        pcSection()
     }
 }
 

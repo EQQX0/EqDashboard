@@ -229,7 +229,7 @@ fun VpsScreen(
 }
 
 @Composable
-private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+internal fun fieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = S21Colors.OnGlass,
     unfocusedTextColor = S21Colors.OnGlass,
     errorTextColor = S21Colors.OnGlass,
@@ -344,7 +344,7 @@ private fun SetupCard() {
 
 /** A dark monospace block with a Copy button. */
 @Composable
-private fun CommandBlock(command: String, copyLabel: String) {
+internal fun CommandBlock(command: String, copyLabel: String) {
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) {
