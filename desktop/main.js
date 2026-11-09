@@ -55,12 +55,18 @@ app.whenReady().then(() => {
     writeCfg(p.url, p.token);
     return { ok: true };
   });
-  ipcMain.handle('cfg:scan', async () => {
-    const hit = findPairFile(['downloads', 'desktop', 'documents'].map((n) => app.getPath(n)));
-    if (!hit) return { ok: false };
+  const searchDirs = () => ['downloads', 'desktop', 'documents'].map((n) => app.getPath(n));
+  // Only reports that a pairing file exists (never the token), so the screen can offer it as a choice.
+  ipcMain.handle('cfg:find', () => {
+    const hit = findPairFile(searchDirs());
+    if (!hit) return { found: false };
+    return { found: true, name: path.basename(hit.file), folder: path.basename(path.dirname(hit.file)), host: new URL(hit.url).host };
+  });
+  // Signs in with the newest pairing file. The file is left where it is.
+  ipcMain.handle('cfg:useFound', () => {
+    const hit = findPairFile(searchDirs());
+    if (!hit) throw new Error('The pairing file is gone');
     writeCfg(hit.url, hit.token);
-    const r = await dialog.showMessageBox({ type: 'question', buttons: ['Delete the file', 'Keep it'], defaultId: 0, cancelId: 1, title: 'Signed in', message: 'Signed in using ' + path.basename(hit.file), detail: 'That file holds your token. Delete it now?' });
-    if (r.response === 0) { try { fs.unlinkSync(hit.file); } catch {} }
     return { ok: true };
   });
   ipcMain.handle('cfg:clear', () => { const c = readCfg(); writeCfg(c.baseUrl, ''); return true; });

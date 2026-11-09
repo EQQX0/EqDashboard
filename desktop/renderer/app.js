@@ -199,8 +199,26 @@ async function boot() {
   const cfg = await window.s21.getConfig();
   if (!cfg.signedIn) {
     $('login').hidden = false; $('url').value = cfg.baseUrl || '';
-    const scan = async () => { try { const r = await window.s21.scanPair(); if (r.ok) location.reload(); } catch {} };
-    scan(); setInterval(scan, 3000);
+    // Look for a pairing file once, then only until one is found or the person chooses to type. One check at a time.
+    let looking = false, dismissed = false;
+    const look = async () => {
+      if (looking || dismissed) return;
+      looking = true;
+      try {
+        const r = await window.s21.findPair();
+        if (r.found) {
+          $('foundText').textContent = `Found ${r.name} in ${r.folder} for ${r.host}.`;
+          $('found').hidden = false; clearInterval(poll); poll = null;
+        }
+      } catch {} finally { looking = false; }
+    };
+    let poll = setInterval(look, 3000);
+    look();
+    $('useFound').addEventListener('click', async () => {
+      try { await window.s21.usePair(); location.reload(); }
+      catch (e) { $('loginErr').textContent = e.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
+    });
+    $('skipFound').addEventListener('click', () => { dismissed = true; $('found').hidden = true; if (poll) { clearInterval(poll); poll = null; } });
     $('importBtn').addEventListener('click', async () => {
       try { const r = await window.s21.importPair(); if (r.ok) location.reload(); }
       catch (e) { $('loginErr').textContent = e.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
