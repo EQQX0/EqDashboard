@@ -141,6 +141,27 @@ test('setUser changes the ssh user and validates it', async () => {
   assert.equal(await code(Promise.resolve().then(() => pc.setUser('nope', 'x'))), 'not_found');
 });
 
+test('lights link: saved per pc, secret kept out of the list, must point at the pc', async () => {
+  const { pc, dir } = setup();
+  const it = await pc.add(body({ ip: '127.0.0.1' }));
+  const url = 'http://127.0.0.1:47822/?t=abcdef123456';
+  assert.equal(await code(Promise.resolve().then(() => pc.lightsLink(it.id))), 'no_lights');
+  assert.equal(pc.setLights(it.id, url + '#frag').hasLights, true);
+  assert.equal(pc.lightsLink(it.id), url);
+  const listed = JSON.stringify(await pc.list());
+  assert.ok(!listed.includes('abcdef123456'), 'token must not appear in the list');
+  assert.equal((await pc.list()).items[0].hasLights, true);
+  assert.match(fs.readFileSync(path.join(dir, 'data', 'pcs.json'), 'utf8'), /abcdef123456/);
+  for (const bad of ['not a url', 'https://127.0.0.1:47822/?t=abcdef123456', 'http://10.1.2.3:47822/?t=abcdef123456',
+    'http://127.0.0.1:47822/', 'http://127.0.0.1:47822/?t=short', 'http://u:p@127.0.0.1:47822/?t=abcdef123456',
+    'http://127.0.0.1:47822/?t=' + 'x'.repeat(500)]) {
+    assert.equal(await code(Promise.resolve().then(() => pc.setLights(it.id, bad))), 'bad_link', bad);
+  }
+  assert.equal(pc.lightsLink(it.id), url, 'a refused link changes nothing');
+  assert.equal(pc.setLights(it.id, '').hasLights, false);
+  assert.equal(await code(Promise.resolve().then(() => pc.setLights('nope', url))), 'not_found');
+});
+
 test('rapid repeats are refused and delete forgets the pc', async () => {
   const udp = await udpListener();
   const { pc } = setup({ cooldownMs: 5000, sendTo: [{ address: '127.0.0.1', port: udp.port }] });

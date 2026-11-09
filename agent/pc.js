@@ -98,7 +98,31 @@ function createPc(opts = {}) {
     return Promise.all(PROBE_PORTS.map(one)).then((r) => r.some(Boolean));
   }
 
-  const view = (p, online) => ({ id: p.id, name: p.name, mac: p.mac, ip: p.ip, sshUser: p.sshUser, sshPort: p.sshPort, online });
+  // The lights link holds a secret token, so the list only says whether one is saved.
+  const view = (p, online) => ({ id: p.id, name: p.name, mac: p.mac, ip: p.ip, sshUser: p.sshUser, sshPort: p.sshPort, hasLights: !!p.lightsUrl, online });
+
+  // EqRGB phone-remote link, e.g. http://192.168.0.174:47822/?t=TOKEN. It must point at this PC. Empty clears it.
+  function setLights(id, raw) {
+    const p = existing(id);
+    const text = String(raw === undefined || raw === null ? '' : raw).trim();
+    if (text === '') { delete p.lightsUrl; save(); return view(p, false); }
+    let u;
+    try { u = new URL(text); } catch { throw new ApiError(400, 'bad_link'); }
+    const token = u.searchParams.get('t');
+    if (text.length > 400 || u.protocol !== 'http:' || u.hostname !== p.ip || !token || token.length < 8 || u.username || u.password) {
+      throw new ApiError(400, 'bad_link');
+    }
+    u.hash = '';
+    p.lightsUrl = u.toString();
+    save();
+    return view(p, false);
+  }
+
+  function lightsLink(id) {
+    const p = existing(id);
+    if (!p.lightsUrl) throw new ApiError(409, 'no_lights');
+    return p.lightsUrl;
+  }
 
   async function list() {
     const items = await Promise.all(Object.values(pcs).map(async (p) => view(p, await probe(p.ip))));
@@ -259,6 +283,11 @@ function createPc(opts = {}) {
       const b = await readBody(req);
       sendJson(res, 200, { ok: true, item: setUser(b.id, b.sshUser) });
     }),
+    'POST /pc/lights': wrap(async (req, res) => {
+      const b = await readBody(req);
+      sendJson(res, 200, { ok: true, item: setLights(b.id, b.url) });
+    }),
+    'POST /pc/lights/link': wrap(async (req, res) => sendJson(res, 200, { ok: true, url: lightsLink((await readBody(req)).id) })),
     'POST /pc/wake': wrap(async (req, res) => { await wake((await readBody(req)).id); sendJson(res, 200, { ok: true }); }),
     'POST /pc/shutdown': wrap(async (req, res) => { await shutdown((await readBody(req)).id); sendJson(res, 200, { ok: true }); }),
     // Creates the agent's SSH key on first use and returns the public half for the PC's authorized_keys.
@@ -266,7 +295,7 @@ function createPc(opts = {}) {
     'DELETE /pc': wrap(async (req, res, url) => { remove(url.searchParams.get('id')); sendJson(res, 200, { ok: true }); }),
   };
 
-  return { routes, init, list, add, setUser, remove, wake, shutdown, ensureKey, publicKey };
+  return { routes, init, list, add, setUser, setLights, lightsLink, remove, wake, shutdown, ensureKey, publicKey };
 }
 
 const instance = createPc();

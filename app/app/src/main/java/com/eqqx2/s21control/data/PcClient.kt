@@ -29,6 +29,7 @@ data class PcItem(
     val ip: String = "",
     val sshUser: String = "",
     val sshPort: Int = 22,
+    val hasLights: Boolean = false,
     val online: Boolean = false,
 )
 
@@ -41,6 +42,9 @@ data class PcEnvelope(val item: PcItem)
 
 @Serializable
 data class PcKey(val key: String? = null)
+
+@Serializable
+data class PcLightsLink(val url: String? = null)
 
 sealed interface PcResult<out T> {
     data class Ok<T>(val value: T) : PcResult<T>
@@ -56,6 +60,8 @@ sealed interface PcResult<out T> {
     data object NotFound : PcResult<Nothing>
     data object TooFast : PcResult<Nothing>
     data object NoSshUser : PcResult<Nothing>
+    data object BadLink : PcResult<Nothing>
+    data object NoLights : PcResult<Nothing>
     data object AuthFailed : PcResult<Nothing>
     data object Unreachable : PcResult<Nothing>
     data object SshMissing : PcResult<Nothing>
@@ -100,6 +106,25 @@ class PcClient(http: OkHttpClient = OkHttpClient()) {
                 }))
             },
         ) { PcResult.Ok(pcJson.decodeFromString(PcEnvelope.serializer(), it).item) }
+
+    /** Saves the EqRGB phone-remote link for a PC. A blank [url] removes it. */
+    suspend fun setLights(baseUrl: String, token: String, id: String, url: String): PcResult<PcItem> =
+        call(
+            baseUrl, token, "pc/lights",
+            {
+                it.post(jsonBody(buildJsonObject {
+                    put("id", JsonPrimitive(id))
+                    put("url", JsonPrimitive(url))
+                }))
+            },
+        ) { PcResult.Ok(pcJson.decodeFromString(PcEnvelope.serializer(), it).item) }
+
+    /** The saved link, fetched only when the user taps Lights. */
+    suspend fun lightsLink(baseUrl: String, token: String, id: String): PcResult<String> =
+        call(baseUrl, token, "pc/lights/link", { it.post(idBody(id)) }) {
+            val u = pcJson.decodeFromString(PcLightsLink.serializer(), it).url
+            if (u.isNullOrBlank()) PcResult.NoLights else PcResult.Ok(u)
+        }
 
     suspend fun wake(baseUrl: String, token: String, id: String): PcResult<Unit> =
         call(baseUrl, token, "pc/wake", { it.post(idBody(id)) }) { PcResult.Ok(Unit) }
@@ -178,6 +203,8 @@ class PcClient(http: OkHttpClient = OkHttpClient()) {
             "too_many" -> PcResult.TooMany(max)
             "not_found" -> PcResult.NotFound
             "no_ssh_user" -> PcResult.NoSshUser
+            "bad_link" -> PcResult.BadLink
+            "no_lights" -> PcResult.NoLights
             "auth_failed" -> PcResult.AuthFailed
             "unreachable" -> PcResult.Unreachable
             "ssh_missing" -> PcResult.SshMissing

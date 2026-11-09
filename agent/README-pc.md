@@ -22,4 +22,6 @@ All routes need the bearer token.
 | `POST /pc/key` | Creates the S21's SSH key if missing, returns the public half |
 | `DELETE /pc?id=...` | Forget a PC |
 
+`POST /pc/lights` saves an EqRGB phone-remote link (body `{"id","url"}`, blank url clears it) and `POST /pc/lights/link` returns it. The list only says `hasLights`; the link holds a token.
+
 Needs `pkg install openssh` in Termux (the setup script already installs it). The agent allows 8 PCs.

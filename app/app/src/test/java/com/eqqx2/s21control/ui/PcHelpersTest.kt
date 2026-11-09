@@ -10,7 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PcHelpersTest {
-    private fun pc(online: Boolean, user: String = "me") = PcItem("id", "Desktop", "aa:bb:cc:dd:ee:ff", "192.168.1.20", user, 22, online)
+    private fun pc(online: Boolean, user: String = "me") = PcItem(id = "id", name = "Desktop", mac = "aa:bb:cc:dd:ee:ff", ip = "192.168.1.20", sshUser = user, sshPort = 22, online = online)
 
     @Test fun chipTextFollowsStateAndPendingTransitions() {
         assertEquals("Off", pcChipText(pc(false), null, 0))
@@ -44,6 +44,25 @@ class PcHelpersTest {
     @Test fun ipInputOnlyAcceptsHomeNetworkAddresses() {
         for (ok in listOf("", "192.168.1.20", "10.0.0.5", "172.16.0.1", "172.31.9.9")) assertNull(ok, ipInputError(ok))
         for (bad in listOf("8.8.8.8", "127.0.0.1", "172.32.0.1", "192.168.1", "192.168.1.300", "pc.local", "192.168.1.2.3")) assertNotNull(bad, ipInputError(bad))
+    }
+
+    @Test fun lightsLinkMustPointAtThePcWithAToken() {
+        val ip = "192.168.0.174"
+        assertNull(lightsLinkError("", ip))
+        assertNull(lightsLinkError("   ", ip))
+        assertNull(lightsLinkError("http://$ip:47822/?t=abcdef123456", ip))
+        assertNull(lightsLinkError("  http://$ip:47822/?t=abcdef123456  ", ip))
+        assertNull(lightsLinkError("http://$ip/?x=1&t=abcdef123456", ip))
+        for (bad in listOf(
+            "hello", "https://$ip:47822/?t=abcdef123456", "http://10.0.0.5:47822/?t=abcdef123456",
+            "http://$ip:47822/", "http://$ip:47822/?t=short", "rgbcontrol://pair?host=$ip&t=abcdef123456",
+            "http://$ip:47822/?t=" + "x".repeat(500),
+        )) assertNotNull(bad, lightsLinkError(bad, ip))
+    }
+
+    @Test fun lightsErrorTexts() {
+        assertTrue(pcErrorText(PcResult.BadLink).contains("EqRGB"))
+        assertTrue(pcErrorText(PcResult.NoLights).contains("No lights link"))
     }
 
     @Test fun userInput() {

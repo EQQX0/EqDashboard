@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -31,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
@@ -75,6 +79,8 @@ fun PcSection(vm: PcViewModel, modifier: Modifier = Modifier) {
 
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var setupId by rememberSaveable { mutableStateOf<String?>(null) }
+    var lightsId by rememberSaveable { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
     var offId by rememberSaveable { mutableStateOf<String?>(null) }
     var removeId by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -99,6 +105,17 @@ fun PcSection(vm: PcViewModel, modifier: Modifier = Modifier) {
                 onWake = { vm.wake(item) },
                 onOff = { if (item.sshUser.isBlank()) setupId = item.id else offId = item.id },
                 onSetup = { setupId = item.id },
+                onLights = {
+                    if (item.hasLights) {
+                        vm.openLights(item) { url, err ->
+                            if (url != null) {
+                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                catch (e: Exception) { vm.showMessage("No browser app could open the lights link") }
+                            } else vm.showMessage(err ?: "Could not open the lights link")
+                        }
+                    } else lightsId = item.id
+                },
+                onLightsLink = { lightsId = item.id },
                 onRemove = { removeId = item.id },
             )
         }
@@ -120,6 +137,10 @@ fun PcSection(vm: PcViewModel, modifier: Modifier = Modifier) {
 
     if (showAdd) {
         AddPcDialog(saving = state.saving, onAdd = vm::add, onDismiss = { showAdd = false })
+    }
+    lightsId?.let { id ->
+        val item = state.items.firstOrNull { it.id == id }
+        if (item == null) lightsId = null else LightsLinkDialog(item, vm, onDismiss = { lightsId = null })
     }
     setupId?.let { id ->
         val item = state.items.firstOrNull { it.id == id }
@@ -174,6 +195,8 @@ private fun PcRow(
     onWake: () -> Unit,
     onOff: () -> Unit,
     onSetup: () -> Unit,
+    onLights: () -> Unit,
+    onLightsLink: () -> Unit,
     onRemove: () -> Unit,
 ) {
     GlassCard(Modifier.fillMaxWidth()) {
@@ -188,6 +211,7 @@ private fun PcRow(
             }
             if (canWake) PrimaryPillButton("Turn on", modifier = Modifier.fillMaxWidth(), onClick = onWake)
             if (canOff) OutlinePill("Turn off", Modifier.fillMaxWidth(), onOff)
+            if (item.hasLights && chip == "On") OutlinePill("Lights", Modifier.fillMaxWidth(), onLights)
             if (!canWake && !canOff) {
                 Text(
                     if (chip == "Starting") "Waiting for Windows to start" else "Shutting down",
@@ -197,8 +221,9 @@ private fun PcRow(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextAction(if (item.sshUser.isBlank()) "Set up shutdown" else "Shutdown setup", onSetup, Modifier.weight(1f))
-                TextAction("Remove", onRemove, Modifier.weight(1f), critical = true)
+                TextAction(if (item.hasLights) "Lights link" else "Add lights", onLightsLink, Modifier.weight(1f))
             }
+            TextAction("Remove", onRemove, Modifier.fillMaxWidth(), critical = true)
         }
     }
 }
@@ -308,5 +333,49 @@ private fun SetupDialog(item: PcItem, vm: PcViewModel, onDismiss: () -> Unit) {
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close", color = S21Colors.OnGlass, fontSize = 16.sp) } },
+    )
+}
+
+/** Saves the EqRGB phone-remote link so the PC card can open the lights controls. */
+@Composable
+private fun LightsLinkDialog(item: PcItem, vm: PcViewModel, onDismiss: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    var link by rememberSaveable { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val linkError = lightsLinkError(link, item.ip)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFFF6D5D8),
+        titleContentColor = S21Colors.OnGlass,
+        textContentColor = S21Colors.OnGlassMuted,
+        title = { Text("Lights for ${item.name}") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "In EqRGB on the PC, turn on the phone remote and copy its link. Paste it here. The Lights button then opens EqRGB's controls. It works on your home Wi-Fi while the PC is on and EqRGB is running.",
+                    fontSize = 14.sp,
+                )
+                if (item.hasLights) Text("A link is saved. Paste a new one to replace it, or remove it below.", fontSize = 14.sp, color = S21Colors.OnGlass)
+                OutlinedTextField(
+                    value = link, onValueChange = { link = it; error = null }, minLines = 2, maxLines = 4,
+                    label = { Text("EqRGB phone link", fontSize = 14.sp) }, isError = linkError != null || error != null,
+                    supportingText = { Text(error ?: linkError ?: "Treat this link like a password: anyone with it controls the lights.", fontSize = 14.sp) },
+                    textStyle = TextStyle(fontSize = 14.sp), colors = fieldColors(), modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinePill("Paste", Modifier.fillMaxWidth()) {
+                    clipboard.getText()?.text?.trim()?.takeIf { it.isNotEmpty() }?.let { link = it; error = null }
+                }
+                if (item.hasLights) {
+                    TextAction("Remove saved link", { vm.setLights(item, "") { err -> if (err == null) onDismiss() else error = err } }, Modifier.fillMaxWidth(), critical = true)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = link.isNotBlank() && linkError == null,
+                onClick = { vm.setLights(item, link) { err -> if (err == null) onDismiss() else error = err } },
+            ) { Text("Save", color = S21Colors.OnGlass, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = S21Colors.OnGlass, fontSize = 16.sp) } },
     )
 }

@@ -51,6 +51,23 @@ class PcClientTest {
         assertEquals(listOf("POST /pc/wake", "POST /pc/shutdown", "DELETE /pc?id=a1", "POST /pc/user", "POST /pc/key"), r)
     }
 
+    @Test fun lightsRoutesAndHasLightsFlag() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"ok":true,"item":{"id":"a1","name":"Desktop","hasLights":true}}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true,"url":"http://192.168.0.174:47822/?t=abcdef123456"}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true,"url":null}"""))
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":"bad_link"}"""))
+        server.enqueue(MockResponse().setResponseCode(409).setBody("""{"error":"no_lights"}"""))
+        assertTrue((client.setLights(base(), "t", "a1", "http://192.168.0.174:47822/?t=abcdef123456") as PcResult.Ok).value.hasLights)
+        assertEquals("http://192.168.0.174:47822/?t=abcdef123456", (client.lightsLink(base(), "t", "a1") as PcResult.Ok).value)
+        assertEquals(PcResult.NoLights, client.lightsLink(base(), "t", "a1"))
+        assertEquals(PcResult.BadLink, client.setLights(base(), "t", "a1", "x"))
+        assertEquals(PcResult.NoLights, client.lightsLink(base(), "t", "a1"))
+        val a = server.takeRequest()
+        assertEquals("POST /pc/lights", "${a.method} ${a.path}")
+        assertTrue(a.body.readUtf8().contains("\"url\":\"http://192.168.0.174:47822/?t=abcdef123456\""))
+        assertEquals("POST /pc/lights/link", server.takeRequest().let { "${it.method} ${it.path}" })
+    }
+
     @Test fun errorsMapToTypedResults() = runBlocking {
         fun enqueue(code: Int, body: String) = server.enqueue(MockResponse().setResponseCode(code).setBody(body))
         enqueue(400, """{"error":"bad_mac"}""")

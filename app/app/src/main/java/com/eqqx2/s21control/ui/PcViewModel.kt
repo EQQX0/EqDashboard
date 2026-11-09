@@ -54,6 +54,15 @@ fun ipInputError(s: String): String? {
 fun userInputError(s: String): String? =
     if (s.isEmpty() || Regex("^[A-Za-z0-9._-]{1,32}$").matches(s)) null else "Letters, digits, dots, dashes and underscores only"
 
+/** Null when the text is empty or looks like an EqRGB phone link for [pcIp]: http, the PC's own address, a `t=` token. */
+fun lightsLinkError(text: String, pcIp: String): String? {
+    val t = text.trim()
+    if (t.isEmpty()) return null
+    val m = Regex("""^http://([0-9.]+)(:\d{1,5})?/[^\s#]*[?&]t=([^&\s#]{8,})""").find(t)
+    return if (m != null && m.groupValues[1] == pcIp && t.length <= 400) null
+    else "Paste the EqRGB phone link for this PC. It looks like http://$pcIp:47822/?t=..."
+}
+
 /** The command to paste into PowerShell on the PC, as administrator. It lets the S21 shut the PC down and nothing else. */
 fun pcSetupCommand(key: String): String =
     "Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0; " +
@@ -75,6 +84,8 @@ fun pcErrorText(r: PcResult<*>, fallback: String = "Action failed"): String = wh
     is PcResult.TooMany -> "You already have the most PCs allowed" + (r.max?.let { " ($it)" } ?: "")
     PcResult.NotFound -> "That PC no longer exists"
     PcResult.TooFast -> "Just a moment, that was sent a second ago"
+    PcResult.BadLink -> "That isn't the EqRGB phone link for this PC. It looks like http://192.168.0.174:47822/?t=..."
+    PcResult.NoLights -> "No lights link saved for this PC yet"
     PcResult.NoSshUser -> "Set up shutdown for this PC first. Open the PC's menu and tap Set up shutdown."
     PcResult.AuthFailed -> "The PC refused the S21's key. Run the setup command on the PC again."
     PcResult.Unreachable -> "The S21 could not reach the PC over SSH. Is it on and is OpenSSH running?"
@@ -208,6 +219,30 @@ class PcViewModel(
         }
     }
 
+    /** Saves (or, with blank text, clears) the EqRGB link. [done] gets null on success or an error text. */
+    fun setLights(item: PcItem, url: String, done: (String?) -> Unit) {
+        val token = store.token ?: return fail401()
+        viewModelScope.launch {
+            when (val r = client.setLights(store.baseUrl, token, item.id, url.trim())) {
+                is PcResult.Ok -> { done(null); load() }
+                PcResult.Unauthorized -> fail401()
+                else -> done(pcErrorText(r))
+            }
+        }
+    }
+
+    /** Fetches the saved link for the Lights button. [done] gets the link or an error text. */
+    fun openLights(item: PcItem, done: (url: String?, error: String?) -> Unit) {
+        val token = store.token ?: return fail401()
+        viewModelScope.launch {
+            when (val r = client.lightsLink(store.baseUrl, token, item.id)) {
+                is PcResult.Ok -> done(r.value, null)
+                PcResult.Unauthorized -> fail401()
+                else -> done(null, pcErrorText(r))
+            }
+        }
+    }
+
     fun delete(item: PcItem) {
         val token = store.token ?: return fail401()
         viewModelScope.launch {
@@ -219,6 +254,8 @@ class PcViewModel(
             load()
         }
     }
+
+    fun showMessage(text: String) = _state.update { it.copy(message = text) }
 
     fun clearMessage() = _state.update { it.copy(message = null) }
 
