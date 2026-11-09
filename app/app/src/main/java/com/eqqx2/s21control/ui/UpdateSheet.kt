@@ -107,10 +107,7 @@ fun UpdateSheet(vm: UpdateViewModel, onDismiss: () -> Unit) {
                     )
                 }
             }
-            Column {
-                Text("Update server", color = S21Colors.OnCrimsonMuted, fontSize = 12.sp)
-                Text(vm.serverUrl, color = Color.White, fontSize = 14.sp)
-            }
+            Text("Updates from github.com/${vm.repo}", color = S21Colors.OnCrimsonMuted, fontSize = 14.sp)
             StateArea(vm, state)
         }
     }

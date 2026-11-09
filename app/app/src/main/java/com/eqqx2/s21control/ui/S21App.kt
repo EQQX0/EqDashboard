@@ -111,8 +111,7 @@ fun S21App() {
                 UpdateViewModel(
                     appContext = context.applicationContext,
                     client = UpdateClient(),
-                    store = store,
-                    baseUpdateUrl = BuildConfig.UPDATE_BASE_URL,
+                    repo = BuildConfig.UPDATE_REPO,
                     versionName = BuildConfig.VERSION_NAME,
                     versionCode = BuildConfig.VERSION_CODE,
                     prefs = context.applicationContext.getSharedPreferences(

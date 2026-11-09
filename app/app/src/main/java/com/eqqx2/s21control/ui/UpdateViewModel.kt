@@ -5,9 +5,7 @@ import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eqqx2.s21control.data.ApkInstaller
-import com.eqqx2.s21control.data.ApkUrlResult
 import com.eqqx2.s21control.data.DownloadResult
-import com.eqqx2.s21control.data.TokenStore
 import com.eqqx2.s21control.data.UpdateCheck
 import com.eqqx2.s21control.data.UpdateClient
 import com.eqqx2.s21control.data.UpdateInfo
@@ -44,8 +42,7 @@ data class UpdateUiState(
 class UpdateViewModel(
     private val appContext: Context,
     private val client: UpdateClient,
-    private val store: TokenStore,
-    private val baseUpdateUrl: String,
+    val repo: String,
     val versionName: String,
     val versionCode: Int,
     private val prefs: SharedPreferences,
@@ -56,18 +53,14 @@ class UpdateViewModel(
     private var job: Job? = null
     private var autoChecked = false
 
-    val serverUrl: String get() = baseUpdateUrl
-
     /** Silent check, at most once per [CHECK_INTERVAL_MS]. Failures are ignored and never surfaced. */
     fun backgroundCheck() {
         if (autoChecked) return
         autoChecked = true
-        val token = store.token?.trim().orEmpty()
-        if (token.isEmpty()) return
         val last = prefs.getLong(KEY_LAST_CHECK, 0L)
         if (clock() - last in 0 until CHECK_INTERVAL_MS) return
         viewModelScope.launch {
-            val r = client.check(baseUpdateUrl, token, versionCode)
+            val r = client.check(repo, versionCode)
             if (r !is UpdateCheck.Failure) prefs.edit().putLong(KEY_LAST_CHECK, clock()).apply()
             if (r is UpdateCheck.Available) _state.update { it.copy(available = r.info) }
         }
@@ -75,23 +68,16 @@ class UpdateViewModel(
 
     fun checkNow() {
         if (_state.value.phase is UpdatePhase.Checking || _state.value.phase is UpdatePhase.Downloading) return
-        val token = store.token?.trim().orEmpty()
-        if (token.isEmpty()) {
-            _state.update { it.copy(phase = UpdatePhase.Error("Not signed in")) }
-            return
-        }
         _state.update { it.copy(phase = UpdatePhase.Checking) }
         job = viewModelScope.launch {
-            val phase = when (val r = client.check(baseUpdateUrl, token, versionCode)) {
+            val phase = when (val r = client.check(repo, versionCode)) {
                 is UpdateCheck.Available -> {
                     _state.update { it.copy(available = r.info) }
                     UpdatePhase.Available(r.info)
                 }
                 UpdateCheck.UpToDate -> UpdatePhase.UpToDate
                 UpdateCheck.NoRelease -> UpdatePhase.NoRelease
-                UpdateCheck.Unauthorized -> UpdatePhase.Error("Token rejected by the update server")
-                UpdateCheck.NotConfigured -> UpdatePhase.Error("The update server isn't set up yet")
-                UpdateCheck.RateLimited -> UpdatePhase.Error("Too many requests, try again in a minute")
+                UpdateCheck.RateLimited -> UpdatePhase.Error("GitHub is limiting update checks right now. Try again later.")
                 is UpdateCheck.Failure -> UpdatePhase.Error(r.message)
             }
             if (r0(phase)) prefs.edit().putLong(KEY_LAST_CHECK, clock()).apply()
@@ -108,36 +94,18 @@ class UpdateViewModel(
             _state.update { it.copy(phase = UpdatePhase.PermissionNeeded(info)) }
             return
         }
-        val token = store.token?.trim().orEmpty()
-        if (token.isEmpty()) {
-            _state.update { it.copy(phase = UpdatePhase.Error("Not signed in", info)) }
-            return
-        }
         _state.update { it.copy(phase = UpdatePhase.Downloading(info, 0L)) }
         job = viewModelScope.launch {
-            val phase: UpdatePhase = when (val u = client.resolveApkUrl(baseUpdateUrl, token, info.versionCode)) {
-                is ApkUrlResult.Ok -> {
-                    if (!u.url.startsWith("https://")) {
-                        UpdatePhase.Error("Update server returned an insecure download link", info)
-                    } else {
-                        val dest = ApkInstaller.apkFile(appContext, info.versionCode)
-                        val d = client.download(u.url, dest, info.sha256, info.size) { read ->
-                            _state.update { s ->
-                                if (s.phase is UpdatePhase.Downloading) s.copy(phase = UpdatePhase.Downloading(info, read)) else s
-                            }
-                        }
-                        when (d) {
-                            is DownloadResult.Ok -> UpdatePhase.ReadyToInstall(info, d.file)
-                            DownloadResult.HashMismatch, DownloadResult.SizeMismatch -> UpdatePhase.ChecksumFailed(info)
-                            is DownloadResult.Failure -> UpdatePhase.Error(d.message, info)
-                        }
-                    }
+            val dest = ApkInstaller.apkFile(appContext, info.versionCode)
+            val d = client.download(info.apkUrl, dest, info.sha256, info.size) { read ->
+                _state.update { s ->
+                    if (s.phase is UpdatePhase.Downloading) s.copy(phase = UpdatePhase.Downloading(info, read)) else s
                 }
-                ApkUrlResult.Unauthorized -> UpdatePhase.Error("Token rejected by the update server", info)
-                ApkUrlResult.NotConfigured -> UpdatePhase.Error("The update server isn't set up yet", info)
-                ApkUrlResult.NotFound -> UpdatePhase.Error("That version is no longer available", null)
-                ApkUrlResult.RateLimited -> UpdatePhase.Error("Too many requests, try again in a minute", info)
-                is ApkUrlResult.Failure -> UpdatePhase.Error(u.message, info)
+            }
+            val phase: UpdatePhase = when (d) {
+                is DownloadResult.Ok -> UpdatePhase.ReadyToInstall(info, d.file)
+                DownloadResult.HashMismatch, DownloadResult.SizeMismatch -> UpdatePhase.ChecksumFailed(info)
+                is DownloadResult.Failure -> UpdatePhase.Error(d.message, info)
             }
             _state.update {
                 it.copy(

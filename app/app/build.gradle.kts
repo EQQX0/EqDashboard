@@ -9,7 +9,7 @@ plugins {
 
 val appVersionCode = (project.findProperty("APP_VERSION_CODE") as String).trim().toInt()
 val appVersionName = (project.findProperty("APP_VERSION_NAME") as String).trim()
-val updateBaseUrl = (project.findProperty("UPDATE_BASE_URL") as String).trim()
+val updateRepo = (project.findProperty("UPDATE_REPO") as String).trim()
 
 val keystoreFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
@@ -26,7 +26,7 @@ android {
         targetSdk = 35
         versionCode = appVersionCode
         versionName = appVersionName
-        buildConfigField("String", "UPDATE_BASE_URL", "\"$updateBaseUrl\"")
+        buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
     }
 
     signingConfigs {
