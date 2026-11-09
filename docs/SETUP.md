@@ -6,7 +6,7 @@ This guide takes a spare Android phone from zero to the app showing its status. 
 
 - An Android phone that stays on a charger at home
 - [Termux](https://f-droid.org/packages/com.termux/) from F-Droid. The Play Store version is old and breaks package installs.
-- [Termux:Boot](https://f-droid.org/packages/com.termux.boot/) to start everything after a reboot. Optional: Termux:API for battery readings.
+- [Termux:Boot](https://f-droid.org/packages/com.termux.boot/) to start everything after a reboot. [Termux:API](https://f-droid.org/packages/com.termux.api/) for battery and temperature on Overview (open it once after installing; the installer checks and tells you if it is missing).
 - A domain managed by Cloudflare
 - An Android phone to run the app. It can be the same one.
 

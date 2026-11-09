@@ -57,6 +57,13 @@ else
 fi
 [ -n "$DOMAIN" ] && echo "Server address for the app: https://api.$DOMAIN"
 echo
-echo "Two things left on the phone:"
+# Battery and temperature need the Termux:API Android app (the package is installed, the app is separate).
+if ! timeout 8 termux-battery-status 2>/dev/null | grep -q percentage; then
+  NOAPI=1
+fi
+echo "Left to do on the phone:"
 echo " 1. Android settings > Apps > Termux > Battery > Unrestricted"
 echo " 2. Open the Termux:Boot app once (install it from F-Droid) so it starts after a reboot"
+if [ -n "$NOAPI" ]; then
+  echo " 3. Install the Termux:API app from F-Droid and open it once, so Overview can show battery and temperature"
+fi
