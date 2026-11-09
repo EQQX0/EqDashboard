@@ -199,6 +199,10 @@ async function boot() {
   const cfg = await window.s21.getConfig();
   if (!cfg.signedIn) {
     $('login').hidden = false; $('url').value = cfg.baseUrl || '';
+    $('importBtn').addEventListener('click', async () => {
+      try { const r = await window.s21.importPair(); if (r.ok) location.reload(); }
+      catch (e) { $('loginErr').textContent = e.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
+    });
     $('loginForm').addEventListener('submit', async (ev) => {
       ev.preventDefault();
       try { await window.s21.signIn($('url').value, $('token').value); location.reload(); }

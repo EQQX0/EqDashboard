@@ -13,6 +13,18 @@ function normalizeBase(url) {
   return u;
 }
 
+// Pairing file written by agent/pair.js: {"v":1,"url":"https://...","token":"..."}
+function parsePair(text) {
+  if (Buffer.byteLength(String(text), 'utf8') > 4096) throw new Error('That file is too large to be a pairing file');
+  let o;
+  try { o = JSON.parse(String(text).trim().replace(/^﻿/, '')); } catch { throw new Error('That is not a pairing file'); }
+  if (!o || typeof o !== 'object' || String(o.v) !== '1') throw new Error('That is not a pairing file');
+  const url = normalizeBase(o.url);
+  const token = typeof o.token === 'string' ? o.token.trim() : '';
+  if (token.length < 20 || token.length > 200 || /[^!-~]/.test(token)) throw new Error('The token in that file is not valid');
+  return { url, token };
+}
+
 function allowedPath(p) {
   return typeof p === 'string' && !p.includes('..') && ALLOWED.some((re) => re.test(p));
 }
@@ -44,4 +56,4 @@ function createApi({ getConfig, fetchImpl = fetch }) {
   return { call };
 }
 
-module.exports = { createApi, normalizeBase, allowedPath };
+module.exports = { createApi, normalizeBase, allowedPath, parsePair };

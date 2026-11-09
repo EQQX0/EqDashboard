@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { createApi, normalizeBase, allowedPath } = require('../api');
+const { createApi, normalizeBase, allowedPath, parsePair } = require('../api');
 
 test('normalizeBase requires https and trims slashes', () => {
   assert.strictEqual(normalizeBase(' https://api.example.com/ '), 'https://api.example.com');
@@ -16,6 +16,16 @@ test('allowedPath accepts known routes and rejects traversal', () => {
   assert.ok(!allowedPath('agent/update'));
   assert.ok(!allowedPath('files/../x'));
   assert.ok(!allowedPath(undefined));
+});
+
+test('parsePair reads a pairing file and rejects bad ones', () => {
+  const tok = 'a'.repeat(64);
+  assert.deepStrictEqual(parsePair(JSON.stringify({ v: 1, url: 'https://api.example.com/', token: tok }) + ' '), { url: 'https://api.example.com', token: tok });
+  assert.throws(() => parsePair('nope'), /not a pairing file/);
+  assert.throws(() => parsePair(JSON.stringify({ v: 2, url: 'https://x.example.com', token: tok })), /not a pairing file/);
+  assert.throws(() => parsePair(JSON.stringify({ v: 1, url: 'http://x.example.com', token: tok })), /https/);
+  assert.throws(() => parsePair(JSON.stringify({ v: 1, url: 'https://x.example.com', token: 'short' })), /token/);
+  assert.throws(() => parsePair('x'.repeat(5000)), /too large/);
 });
 
 test('call sends bearer token, query and JSON body', async () => {

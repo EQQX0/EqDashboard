@@ -2,7 +2,7 @@
 const { app, BrowserWindow, ipcMain, safeStorage, shell, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { createApi, normalizeBase } = require('./api');
+const { createApi, normalizeBase, parsePair } = require('./api');
 
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
 
@@ -44,6 +44,15 @@ app.whenReady().then(() => {
     if (!token || !String(token).trim()) throw new Error('Paste your token');
     writeCfg(b, String(token).trim());
     return true;
+  });
+  ipcMain.handle('cfg:import', async () => {
+    const r = await dialog.showOpenDialog({ title: 'Choose the pairing file', properties: ['openFile'], filters: [{ name: 'Pairing file', extensions: ['s21', 'json'] }, { name: 'All files', extensions: ['*'] }] });
+    if (r.canceled || !r.filePaths[0]) return { ok: false, cancelled: true };
+    const st = fs.statSync(r.filePaths[0]);
+    if (st.size > 4096) throw new Error('That file is too large to be a pairing file');
+    const p = parsePair(fs.readFileSync(r.filePaths[0], 'utf8'));
+    writeCfg(p.url, p.token);
+    return { ok: true };
   });
   ipcMain.handle('cfg:clear', () => { const c = readCfg(); writeCfg(c.baseUrl, ''); return true; });
   ipcMain.handle('api', async (_e, req) => {

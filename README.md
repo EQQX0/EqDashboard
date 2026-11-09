@@ -22,7 +22,7 @@ You can use any subset. A module you skip stays empty.
 
 1. In Termux on the phone, run `curl -fsSL https://raw.githubusercontent.com/EQQX0/EqDashboard/main/termux/install.sh | bash -s -- yourdomain.com`. [docs/SETUP.md](docs/SETUP.md) explains each step and the manual route.
 2. Download `app.apk` from the [latest release](https://github.com/EQQX0/EqDashboard/releases/latest) and install it. On the sign-in screen, enter your own server address and token.
-3. On Windows, download `Samsung-Server-<version>.exe` from the same page instead. It is a portable app: no install, same sign-in. It covers Overview, Files, Downloads, Sites, VPS and My PC (wake and shut down). Windows may show a SmartScreen warning because the file is unsigned; choose More info, then Run anyway.
+3. On Windows, download `Samsung-Server-<version>.exe` from the same page instead. It is a portable app: no install. Sign in with your address and token, or choose Import pairing file. It covers Overview, Files, Downloads, Sites, VPS and My PC (wake and shut down). Windows may show a SmartScreen warning because the file is unsigned; choose More info, then Run anyway.
 
 ## What you need
 
