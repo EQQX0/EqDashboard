@@ -4,6 +4,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -80,6 +81,8 @@ class UpdateClient(
     private val apiBase: String = "https://api.github.com",
     /** Tests only: replaces the production host allowlist. */
     private val isAllowed: (HttpUrl) -> Boolean = ::isAllowedUpdateUrl,
+    /** Pause before retrying a GitHub 5xx; tests set 0. */
+    private val retryDelayMs: Long = 1500,
 ) {
     /**
      * Network interceptor: runs for the first request and every redirect hop, so a redirect that
@@ -113,7 +116,7 @@ class UpdateClient(
     /** Never throws (except cancellation). Sends no credentials. */
     suspend fun check(repo: String, installedVersionCode: Int): UpdateCheck {
         val releaseUrl = apiBase.trim().trimEnd('/') + "/repos/" + repo.trim() + "/releases/latest"
-        val r = when (val x = get(releaseUrl, API_MAX_BYTES, json = true)) {
+        val r = when (val x = getRetrying(releaseUrl, API_MAX_BYTES, json = true)) {
             is Raw.Err -> return UpdateCheck.Failure(x.message)
             is Raw.Resp -> x
         }
@@ -121,7 +124,7 @@ class UpdateClient(
         if (r.code == 403 || r.code == 429 || (r.code !in 200..299 && r.remaining == "0")) {
             return UpdateCheck.RateLimited
         }
-        if (r.code !in 200..299) return UpdateCheck.Failure("GitHub returned HTTP ${r.code}")
+        if (r.code !in 200..299) return UpdateCheck.Failure(httpFailureText(r.code))
         val bad = UpdateCheck.Failure("Unexpected response from GitHub")
         val root = try { updateJson.parseToJsonElement(r.body).jsonObject } catch (e: Exception) { return bad }
         fun flag(k: String) = try { root[k]?.jsonPrimitive?.booleanOrNull ?: false } catch (e: Exception) { false }
@@ -141,12 +144,12 @@ class UpdateClient(
         if (apkHttp == null || !isAllowed(apkHttp)) {
             return UpdateCheck.Failure("Release points to an untrusted download address")
         }
-        val m = when (val x = get(metaUrl, META_MAX_BYTES, json = false)) {
+        val m = when (val x = getRetrying(metaUrl, META_MAX_BYTES, json = false)) {
             is Raw.Err -> return UpdateCheck.Failure(x.message)
             is Raw.Resp -> x
         }
         if (m.code == 403 || m.code == 429) return UpdateCheck.RateLimited
-        if (m.code !in 200..299) return UpdateCheck.Failure("GitHub returned HTTP ${m.code}")
+        if (m.code !in 200..299) return UpdateCheck.Failure(httpFailureText(m.code))
         val meta = try {
             updateJson.decodeFromString(UpdateMeta.serializer(), m.body)
         } catch (e: Exception) {
@@ -253,6 +256,22 @@ class UpdateClient(
         data class Resp(val code: Int, val body: String, val remaining: String?) : Raw
         data class Err(val message: String) : Raw
     }
+
+    /** GitHub answers the odd 5xx for a moment; ask up to two more times before giving up. */
+    private suspend fun getRetrying(url: String, maxBytes: Long, json: Boolean): Raw {
+        var result = get(url, maxBytes, json)
+        for (attempt in 1..2) {
+            val r = result
+            if (r !is Raw.Resp || r.code < 500 || r.remaining == "0") break
+            delay(retryDelayMs)
+            result = get(url, maxBytes, json)
+        }
+        return result
+    }
+
+    private fun httpFailureText(code: Int): String =
+        if (code >= 500) "GitHub is having trouble right now (HTTP $code). Try again in a minute."
+        else "GitHub returned HTTP $code"
 
     private suspend fun get(url: String, maxBytes: Long, json: Boolean): Raw =
         withContext(Dispatchers.IO) { coroutineScope {

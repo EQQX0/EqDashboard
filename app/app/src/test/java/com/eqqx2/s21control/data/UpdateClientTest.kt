@@ -25,7 +25,7 @@ class UpdateClientTest {
     @Before fun setUp() {
         server = MockWebServer().also { it.start() }
         val host = server.hostName
-        client = UpdateClient(apiBase = base(), isAllowed = { it.host == host })
+        client = UpdateClient(apiBase = base(), isAllowed = { it.host == host }, retryDelayMs = 0)
     }
 
     @After fun tearDown() { try { server.shutdown() } catch (_: Exception) {} }
@@ -120,11 +120,24 @@ class UpdateClientTest {
     }
 
     @Test fun otherErrorsAreFailure() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(502))
-        assertTrue(client.check("o/r", 1) is UpdateCheck.Failure)
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(502)) }
+        val r = client.check("o/r", 1)
+        assertTrue(r is UpdateCheck.Failure)
+        assertTrue((r as UpdateCheck.Failure).message.contains("502"))
         server.enqueue(MockResponse().setBody(release()))
-        server.enqueue(MockResponse().setResponseCode(500))
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(500)) }
         assertTrue(client.check("o/r", 1) is UpdateCheck.Failure)
+    }
+
+    @Test fun transientServerErrorIsRetried() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(MockResponse().setBody(release()))
+        server.enqueue(MockResponse().setResponseCode(503))
+        server.enqueue(MockResponse().setBody(meta(9)))
+        val r = client.check("o/r", 1)
+        assertTrue(r is UpdateCheck.Available)
+        assertEquals(9, (r as UpdateCheck.Available).info.versionCode)
+        assertEquals(4, server.requestCount)
     }
 
     @Test fun oversizedMetaIsFailure() = runBlocking {

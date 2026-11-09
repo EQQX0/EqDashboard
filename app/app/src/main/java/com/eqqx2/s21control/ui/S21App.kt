@@ -229,16 +229,6 @@ fun S21App() {
                 filesVm = filesVm,
                 sitesVm = sitesVm,
                 updateVm = updateVm,
-                onLogout = {
-                    store.clearToken()
-                    updateVm.reset()
-                    vm.reset()
-                    filesVm.reset()
-                    sitesVm.reset()
-                    notice = null
-                    loggedIn = false
-                    importedUri = null
-                },
             )
         }
         }
@@ -273,7 +263,6 @@ private fun Shell(
     filesVm: FilesViewModel,
     sitesVm: SitesViewModel,
     updateVm: UpdateViewModel,
-    onLogout: () -> Unit,
 ) {
     val updateState by updateVm.state.collectAsState()
     var showSheet by rememberSaveable { mutableStateOf(false) }
@@ -318,7 +307,7 @@ private fun Shell(
                     else -> ComingSoon(tabs[t].label, topInset, navClearance)
                 }
             }
-            TopPill(onLogout, { showSheet = true }, updateState.available != null, Modifier.align(Alignment.TopCenter).padding(top = statusTop))
+            TopPill({ showSheet = true }, updateState.available != null, Modifier.align(Alignment.TopCenter).padding(top = statusTop))
             BottomNav(
                 selected = tab,
                 onSelect = { tab = it },
@@ -330,7 +319,7 @@ private fun Shell(
 }
 
 @Composable
-private fun TopPill(onLogout: () -> Unit, onAbout: () -> Unit, updateAvailable: Boolean, modifier: Modifier = Modifier) {
+private fun TopPill(onAbout: () -> Unit, updateAvailable: Boolean, modifier: Modifier = Modifier) {
     Row(
         modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -349,17 +338,6 @@ private fun TopPill(onLogout: () -> Unit, onAbout: () -> Unit, updateAvailable: 
             "S21 Control", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
         )
-        Box(
-            Modifier
-                .size(48.dp)
-                .clip(S21Shapes.Circle)
-                .background(Color.White)
-                .clickable(role = Role.Button, onClick = onLogout),
-            contentAlignment = Alignment.Center,
-        ) {
-            GlassIcon(S21Icons.Logout, "Log out", S21Colors.Ink)
-        }
-        Spacer(Modifier.size(8.dp))
         Box(
             Modifier
                 .size(48.dp)
