@@ -18,7 +18,7 @@ Open Termux and paste this, with your own domain at the end:
 curl -fsSL https://raw.githubusercontent.com/EQQX0/EqDashboard/main/termux/install.sh | bash -s -- yourdomain.com
 ```
 
-It installs everything, links your domain (it prints a link to approve in a browser), sets the agent to start on boot, starts it, and prints your token and server address. It also saves a pairing file (`s21-control.s21`) in the phone's Downloads folder: pick it with Import token file in the phone app, drop it in Downloads on a PC running the Windows app, or send it to another device with `termux-share`. Then do the two phone settings it lists and jump to [step 5](#5-install-the-app-and-sign-in). Leave the domain off to skip the Cloudflare part. Run it again any time to update. Steps 2 to 4 below are the same thing by hand.
+It installs everything, links your domain (it prints a link to approve in a browser), sets the agent to start on boot, starts it, and prints your token and server address. It also saves a pairing file (`samsung-server.pair`) in the phone's Downloads folder: pick it with Import token file in the phone app, drop it in Downloads on a PC running the Windows app, or send it to another device with `termux-share`. Then do the two phone settings it lists and jump to [step 5](#5-install-the-app-and-sign-in). Leave the domain off to skip the Cloudflare part. Run it again any time to update. Steps 2 to 4 below are the same thing by hand.
 
 ## 2. Put the agent on the phone
 

@@ -15,13 +15,13 @@ test('finds the newest valid pairing file and ignores others', () => {
   const a = tmp(), b = tmp();
   fs.writeFileSync(path.join(a, 'old.s21'), good('https://old.example.com'));
   fs.utimesSync(path.join(a, 'old.s21'), new Date(2020, 0, 1), new Date(2020, 0, 1));
-  fs.writeFileSync(path.join(b, 'new.s21'), good('https://new.example.com'));
+  fs.writeFileSync(path.join(b, 'new.pair'), good('https://new.example.com'));
   fs.writeFileSync(path.join(b, 'broken.s21'), 'not json');
   fs.writeFileSync(path.join(b, 'notes.txt'), good('https://txt.example.com'));
   const r = findPairFile([a, b, path.join(a, 'missing')]);
   assert.strictEqual(r.url, 'https://new.example.com');
   assert.strictEqual(r.token, TOK);
-  assert.strictEqual(path.basename(r.file), 'new.s21');
+  assert.strictEqual(path.basename(r.file), 'new.pair');
 });
 
 test('returns null when nothing valid is there', () => {

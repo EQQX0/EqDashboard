@@ -312,7 +312,7 @@ fun S21App() {
                             try { DocumentsContract.deleteDocument(context.contentResolver, picked) } catch (e: Exception) { false }
                         }
                         if (ok) importedUri = null
-                        else importMessage = "Couldn't delete it; remove it with: rm ~/storage/downloads/s21-control.s21"
+                        else importMessage = "Couldn't delete it; remove it with: rm ~/storage/downloads/samsung-server.pair"
                     }
                 },
                 onDismiss = { importedUri = null },

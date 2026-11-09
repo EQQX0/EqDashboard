@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const FILE_NAME = 's21-control.s21';
+const FILE_NAME = 'samsung-server.pair';
 
 function parseArgs(argv) {
   const out = { url: null, out: null, force: false, help: false };

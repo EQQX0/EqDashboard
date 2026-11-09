@@ -35,7 +35,7 @@ test('buildPairFile content parses to expected object', () => {
 test('writes the given url and never prints the token', () => {
   const s = setup();
   assert.strictEqual(s.call(['--url', 'https://api.example.com']), 0);
-  const file = path.join(s.dir, 's21-control.s21');
+  const file = path.join(s.dir, 'samsung-server.pair');
   assert.deepStrictEqual(JSON.parse(fs.readFileSync(file, 'utf8')), { v: 1, url: 'https://api.example.com', token: TOKEN });
   const printed = [...s.out, ...s.err].join('\n');
   assert.ok(!printed.includes(TOKEN));
@@ -47,7 +47,7 @@ test('prefers storage/downloads when it exists', () => {
   const s = setup();
   fs.mkdirSync(path.join(s.dir, 'storage', 'downloads'), { recursive: true });
   assert.strictEqual(s.call(['--url', 'https://api.example.com']), 0);
-  assert.ok(fs.existsSync(path.join(s.dir, 'storage', 'downloads', 's21-control.s21')));
+  assert.ok(fs.existsSync(path.join(s.dir, 'storage', 'downloads', 'samsung-server.pair')));
 });
 
 test('custom url is written', () => {
@@ -61,17 +61,17 @@ test('asks for an address instead of guessing one', () => {
   const s = setup();
   assert.strictEqual(s.call([]), 2);
   assert.ok(s.err.join(' ').includes('--url'));
-  assert.ok(!fs.existsSync(path.join(s.dir, 's21-control.s21')));
+  assert.ok(!fs.existsSync(path.join(s.dir, 'samsung-server.pair')));
   const e = setup({ AGENT_TOKEN: TOKEN, AGENT_PUBLIC_URL: 'https://env.example.com' });
   assert.strictEqual(e.call([]), 0);
-  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(e.dir, 's21-control.s21'), 'utf8')).url, 'https://env.example.com');
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(e.dir, 'samsung-server.pair'), 'utf8')).url, 'https://env.example.com');
 });
 
 test('refuses when no token is available', () => {
   const s = setup({});
   assert.strictEqual(s.call(['--url', 'https://api.example.com']), 1);
   assert.ok(s.err.join('\n').includes('No agent token'));
-  assert.ok(!fs.existsSync(path.join(s.dir, 's21-control.s21')));
+  assert.ok(!fs.existsSync(path.join(s.dir, 'samsung-server.pair')));
 });
 
 test('refuses to overwrite without --force, allows with it', () => {

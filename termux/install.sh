@@ -73,7 +73,7 @@ if [ -n "$DOMAIN" ]; then
       termux-setup-storage 2>/dev/null || true   # Android asks for permission; tap Allow
       for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do [ -d "$HOME/storage/downloads" ] && break; sleep 1; done
     fi
-    if [ -d "$HOME/storage/downloads" ]; then PAIR="$HOME/storage/downloads/s21-control.s21"; else PAIR="$HOME/s21-control.s21"; fi
+    if [ -d "$HOME/storage/downloads" ]; then PAIR="$HOME/storage/downloads/samsung-server.pair"; else PAIR="$HOME/samsung-server.pair"; fi
     if (cd "$DIR/agent" && node pair.js --url "https://api.$DOMAIN" --out "$PAIR" --force >/dev/null); then
       echo
       echo "Pairing file: $PAIR"

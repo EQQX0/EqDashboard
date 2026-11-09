@@ -8,7 +8,7 @@ node pair.js --url https://api.example.com [--out <path>] [--force]
 
 - The token comes from `AGENT_TOKEN`, else `TOKEN_FILE`, else `agent/.token`. With none of them, the command stops.
 - The file holds `{"v":1,"url":"...","token":"..."}` and is created with mode 0600.
-- The default path is `~/storage/downloads/s21-control.s21`, or `./s21-control.s21` when that folder is missing.
+- The default path is `~/storage/downloads/samsung-server.pair`, or `./samsung-server.pair` when that folder is missing.
 - An existing file is never overwritten unless you pass `--force`.
 - The command prints the path and never the token.
 
