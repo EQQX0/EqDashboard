@@ -95,10 +95,11 @@ private val OfflineGrey = Color(0xFFD1D5DB)
 private val SheetBg = Color(0xFF2B1014)
 private val CodeBg = Color(0xFF1A1013)
 
-internal val SETUP_COMMANDS = listOf(
-    """sed -i '/^  - service: http_status:404/i\  - hostname: "*.eqqx2.com"\n    service: http://127.0.0.1:8790' ~/.cloudflared/config.yml""",
-    """cloudflared tunnel route dns s21 "*.eqqx2.com"""",
-    """pkill cloudflared; nohup cloudflared tunnel run s21 >> ~/cloudflared.log 2>&1 &""",
+/** The three commands that route every *.<domain> address to the site server. The domain is the person's own. */
+internal fun setupCommands(domain: String): List<String> = listOf(
+    """sed -i '/^  - service: http_status:404/i\  - hostname: "*.$domain"\n    service: http://127.0.0.1:8790' ~/.cloudflared/config.yml""",
+    """cloudflared tunnel route dns samsung-server "*.$domain"""",
+    """pkill cloudflared; nohup cloudflared tunnel run >> ~/cloudflared.log 2>&1 &""",
 )
 
 @Composable
@@ -142,7 +143,7 @@ fun SitesScreen(
         pickZip.launch(arrayOf("application/zip", "application/x-zip-compressed"))
     }
 
-    val domain = state.domain.ifBlank { "eqqx2.com" }
+    val domain = state.domain.ifBlank { "yourdomain.com" }
     val busy = state.deploy != null
 
     Box(modifier.fillMaxSize()) {
@@ -316,6 +317,7 @@ fun SitesScreen(
 
     if (showHelp) {
         SetupSheet(
+            domain = state.domain,
             onCheckAgain = { vm.recheck() },
             onDismiss = { showHelp = false },
         )
@@ -660,7 +662,8 @@ private fun NewSiteDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SetupSheet(onCheckAgain: () -> Unit, onDismiss: () -> Unit) {
+private fun SetupSheet(domain: String, onCheckAgain: () -> Unit, onDismiss: () -> Unit) {
+    val shownDomain = domain.ifBlank { "yourdomain.com" }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf<Int?>(null) }
@@ -684,10 +687,10 @@ private fun SetupSheet(onCheckAgain: () -> Unit, onDismiss: () -> Unit) {
         ) {
             Text("Finish setup on your phone", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                "Run these three commands in Termux once. They route every *.eqqx2.com address to the site server.",
+                "Run these three commands in Termux once. They route every *.$shownDomain address to the site server." + if (domain.isBlank()) " Replace yourdomain.com with your own domain first." else "",
                 color = S21Colors.OnCrimsonMuted, fontSize = 16.sp,
             )
-            SETUP_COMMANDS.forEachIndexed { i, cmd ->
+            setupCommands(shownDomain).forEachIndexed { i, cmd ->
                 Column(
                     Modifier.fillMaxWidth().clip(S21Shapes.Tile).background(CodeBg)
                         .border(1.dp, S21Colors.NavBorder, S21Shapes.Tile)

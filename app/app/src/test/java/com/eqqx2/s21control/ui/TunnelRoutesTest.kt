@@ -58,4 +58,14 @@ class TunnelRoutesTest {
         assertFalse(l.found)
         assertEquals(emptyList<TunnelRoute>(), externalRoutes(l))
     }
+
+    @Test
+    fun setupCommandsUseThePersonsOwnDomain() {
+        val cmds = setupCommands("example.org")
+        assertEquals(3, cmds.size)
+        assertTrue(cmds[0].contains("""hostname: "*.example.org"\n    service: http://127.0.0.1:8790"""))
+        assertTrue("sed needs a literal backslash-n, not a real line break", !cmds[0].contains('\n'))
+        assertTrue(cmds[1].contains("route dns samsung-server \"*.example.org\""))
+        assertTrue(cmds.none { it.contains("eqqx2") })
+    }
 }
