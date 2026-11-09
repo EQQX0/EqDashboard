@@ -1,8 +1,8 @@
-# S21 Control Android App Implementation Plan
+# Samsung Server Android App Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A native Android app that logs in to the S21 agent with a bearer token and shows live server status.
+**Goal:** A native Android app that logs in to the Samsung server agent with a bearer token and shows live server status.
 
 **Architecture:** Single-activity Compose app. `AgentClient` (OkHttp + kotlinx-serialization) calls `GET /status` on the saved base URL. `TokenStore` keeps URL and token in EncryptedSharedPreferences. A `StatusViewModel` polls every 5 s while the Overview screen is visible. Later modules (Downloads, Files, Sites, VPS) add routes and tabs; none are in this plan.
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Package `com.eqqx2.s21control`, app name `S21 Control`, `minSdk 26`, `compileSdk 35`, `targetSdk 35`.
+- Package `com.eqqx2.s21control`, app name `Samsung Server`, `minSdk 26`, `compileSdk 35`, `targetSdk 35`.
 - Default base URL `https://api.eqqx2.com`; HTTPS only (`usesCleartextTraffic=false`).
 - Auth header: `Authorization: Bearer <token>`.
 - `/status` JSON: `time` (ISO string), `uptimeSec` (number), `load` ([3 numbers]), `cpuCores` (number), `memory{totalBytes,freeBytes}`, `storage{totalKb,usedKb,freeKb}` or `null`, `battery` (object with `percentage`, `temperature`, `status`, `plugged`) or `null`.
@@ -85,7 +85,7 @@
 - [ ] **Step 3: Implement the formatters, then the UI.** Login: URL field (prefilled), token field with visible label, show/hide toggle (content description), "Connect" button that calls `fetchStatus` once and only saves on `Ok`; errors under the field. Overview: cards for CPU load, memory, storage, battery, uptime; top bar shows "Updated N s ago" and a stale state; "Log out" clears the token. Polling every 5 s in `viewModelScope` while the screen is resumed (`repeatOnLifecycle(STARTED)`), 30 s after 429.
 - [ ] **Step 4: Run unit tests, expect PASS.**
 
-### Task 5: Build, install, verify on the S21
+### Task 5: Build, install, verify on the Samsung server
 
 **Files:** none new.
 

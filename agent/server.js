@@ -1,4 +1,4 @@
-// S21 server agent. Zero dependencies; runs on Node.js inside Termux.
+// Samsung server agent. Zero dependencies; runs on Node.js inside Termux.
 const http = require('http');
 const os = require('os');
 const fs = require('fs');

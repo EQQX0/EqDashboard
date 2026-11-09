@@ -1,6 +1,6 @@
 # Pairing the app
 
-`node pair.js` writes a small file that the S21 Control app can import, so you do not type the token on a phone.
+`node pair.js` writes a small file that the Samsung Server app can import, so you do not type the token on a phone.
 
 ```
 node pair.js --url https://api.example.com [--out <path>] [--force]

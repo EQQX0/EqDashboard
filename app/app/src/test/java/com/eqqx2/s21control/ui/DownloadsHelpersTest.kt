@@ -86,8 +86,8 @@ class DownloadsHelpersTest {
     @Test fun errorTextsAreHelpful() {
         assertTrue(downloadsErrorText(DownloadsResult.EngineMissing("aria2")).contains("pkg install aria2"))
         assertTrue(downloadsErrorText(DownloadsResult.EngineMissing("ytdlp")).contains("pip install -U yt-dlp"))
-        assertEquals("Not enough free space on the S21 (1.0 KB left)", downloadsErrorText(DownloadsResult.LowSpace(1024)))
-        assertEquals("Not enough free space on the S21", downloadsErrorText(DownloadsResult.LowSpace(null)))
+        assertEquals("Not enough free space on the Samsung server (1.0 KB left)", downloadsErrorText(DownloadsResult.LowSpace(1024)))
+        assertEquals("Not enough free space on the Samsung server", downloadsErrorText(DownloadsResult.LowSpace(null)))
         assertTrue(downloadsErrorText(DownloadsResult.BadUrl).contains("magnet"))
         assertEquals("boom", downloadsErrorText(DownloadsResult.Failure("boom")))
     }

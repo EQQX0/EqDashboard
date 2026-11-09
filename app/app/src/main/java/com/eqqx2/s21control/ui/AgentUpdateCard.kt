@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
-/** Shown on Overview when the S21 agent has a newer release. Hidden otherwise. */
+/** Shown on Overview when the Samsung server agent has a newer release. Hidden otherwise. */
 @Composable
 fun AgentUpdateCard(
     phase: AgentUpdatePhase,
@@ -49,7 +49,7 @@ fun AgentUpdateCard(
                 is AgentUpdatePhase.Available -> {
                     Text("Agent ${phase.latest} is ready", color = S21Colors.OnGlass, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     Text(
-                        "The S21 runs ${phase.current}. It downloads the new agent from GitHub, checks it and restarts. This takes under a minute.",
+                        "The Samsung server runs ${phase.current}. It downloads the new agent from GitHub, checks it and restarts. This takes under a minute.",
                         color = S21Colors.OnGlassMuted, fontSize = 14.sp,
                     )
                     PrimaryPillButton("Update agent", modifier = Modifier.fillMaxWidth(), onClick = onUpdate)

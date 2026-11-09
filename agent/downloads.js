@@ -1,4 +1,4 @@
-// Downloads for the S21 agent. Zero dependencies; Node 18+ built-ins only.
+// Downloads for the Samsung server agent. Zero dependencies; Node 18+ built-ins only.
 // Direct links, torrents and magnets go to an aria2 daemon (JSON-RPC on 127.0.0.1); video pages go to yt-dlp.
 // Finished files land in FILES_ROOT/downloads, so they show up in the Files tab.
 'use strict';

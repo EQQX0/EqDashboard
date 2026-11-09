@@ -126,7 +126,7 @@ fun LoginScreen(
                 Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     LogoTile(56.dp)
                     Spacer(Modifier.height(12.dp))
-                    Text("S21 Control", color = S21Colors.OnGlass, fontSize = 28.sp, fontWeight = FontWeight.Light)
+                    Text("Samsung Server", color = S21Colors.OnGlass, fontSize = 28.sp, fontWeight = FontWeight.Light)
                     Text("Sign in to your server agent", color = S21Colors.OnGlassMuted, fontSize = 14.sp)
                     Spacer(Modifier.height(20.dp))
 

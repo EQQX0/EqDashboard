@@ -100,7 +100,7 @@ fun UpdateSheet(vm: UpdateViewModel, onDismiss: () -> Unit) {
                 LogoTile(40.dp)
                 Spacer(Modifier.size(12.dp))
                 Column {
-                    Text("S21 Control", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Samsung Server", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                     Text(
                         "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                         color = S21Colors.OnCrimsonMuted, fontSize = 14.sp,
@@ -167,7 +167,7 @@ private fun StateArea(vm: UpdateViewModel, state: UpdateUiState) {
             is UpdatePhase.PermissionNeeded -> {
                 Text("Allow installs from this app", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Android needs your permission before S21 Control can open an update. " +
+                    "Android needs your permission before Samsung Server can open an update. " +
                         "Turn on \"Allow from this source\" in settings, come back, and try again. " +
                         "You will still confirm the install in Android's own dialog.",
                     color = S21Colors.OnCrimsonMuted, fontSize = 14.sp,

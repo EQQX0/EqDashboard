@@ -1,8 +1,8 @@
 {
   "name": "s21-control-desktop",
-  "productName": "S21 Control",
-  "version": "0.11.0",
-  "description": "Windows client for the S21 home server",
+  "productName": "Samsung Server",
+  "version": "0.11.1",
+  "description": "Windows client for the Samsung home server",
   "main": "main.js",
   "author": "EQQX0",
   "license": "MIT",
@@ -17,12 +17,12 @@
   },
   "build": {
     "appId": "com.eqqx2.s21control.desktop",
-    "productName": "S21 Control",
+    "productName": "Samsung Server",
     "directories": { "output": "dist" },
     "files": ["main.js", "preload.js", "api.js", "renderer/**/*"],
     "win": {
       "target": [{ "target": "portable", "arch": ["x64"] }],
-      "artifactName": "S21-Control-${version}.exe",
+      "artifactName": "Samsung-Server-${version}.exe",
       "signAndEditExecutable": false
     }
   }

@@ -1,4 +1,4 @@
-// File-cloud API for the S21 agent. Zero dependencies; Node 18+ built-ins only.
+// File-cloud API for the Samsung server agent. Zero dependencies; Node 18+ built-ins only.
 'use strict';
 const fs = require('fs');
 const fsp = fs.promises;

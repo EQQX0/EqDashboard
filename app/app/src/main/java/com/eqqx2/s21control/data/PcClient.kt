@@ -33,7 +33,7 @@ data class PcItem(
     val online: Boolean = false,
 )
 
-/** [key] is the S21's public SSH key, or null before the first shutdown setup. */
+/** [key] is the Samsung server's public SSH key, or null before the first shutdown setup. */
 @Serializable
 data class PcListing(val items: List<PcItem> = emptyList(), val maxPcs: Int = 8, val key: String? = null)
 
@@ -129,11 +129,11 @@ class PcClient(http: OkHttpClient = OkHttpClient()) {
             if (u.isNullOrBlank()) PcResult.NoLights else PcResult.Ok(u)
         }
 
-    /** Asks the S21 to relay the EqRGB remote. Returns a path like /pc/lights/r/<session>/ on the S21's own address. */
+    /** Asks the Samsung server to relay the EqRGB remote. Returns a path like /pc/lights/r/<session>/ on the Samsung server's own address. */
     suspend fun lightsSession(baseUrl: String, token: String, id: String): PcResult<String> =
         call(baseUrl, token, "pc/lights/session", { it.post(idBody(id)) }) {
             val p = pcJson.decodeFromString(PcLightsSession.serializer(), it).path
-            if (p.isNullOrBlank() || !p.startsWith("/pc/lights/r/")) PcResult.Failure("The S21 sent a lights address the app doesn't recognise") else PcResult.Ok(p)
+            if (p.isNullOrBlank() || !p.startsWith("/pc/lights/r/")) PcResult.Failure("The Samsung server sent a lights address the app doesn't recognise") else PcResult.Ok(p)
         }
 
     suspend fun wake(baseUrl: String, token: String, id: String): PcResult<Unit> =
@@ -142,11 +142,11 @@ class PcClient(http: OkHttpClient = OkHttpClient()) {
     suspend fun shutdown(baseUrl: String, token: String, id: String): PcResult<Unit> =
         call(baseUrl, token, "pc/shutdown", { it.post(idBody(id)) }) { PcResult.Ok(Unit) }
 
-    /** Makes the S21's SSH key if it doesn't exist and returns the public half. */
+    /** Makes the Samsung server's SSH key if it doesn't exist and returns the public half. */
     suspend fun key(baseUrl: String, token: String): PcResult<String> =
         call(baseUrl, token, "pc/key", { it.post(jsonBody(buildJsonObject {})) }) {
             val k = pcJson.decodeFromString(PcKey.serializer(), it).key
-            if (k.isNullOrBlank()) PcResult.Failure("The S21 could not make an SSH key") else PcResult.Ok(k)
+            if (k.isNullOrBlank()) PcResult.Failure("The Samsung server could not make an SSH key") else PcResult.Ok(k)
         }
 
     suspend fun delete(baseUrl: String, token: String, id: String): PcResult<Unit> =

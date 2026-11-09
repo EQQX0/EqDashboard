@@ -1,7 +1,7 @@
 // Relays the EqRGB phone remote (a small web page on the PC, port 47822) through the agent, so a phone
 // that is away from home can use it over the tunnel. The app asks for a session with its bearer token and
 // opens /pc/lights/r/<session>/ ; the 128-bit session id in the path is the only credential on this route.
-// The PC's own token never leaves the S21: the agent adds it as a cookie on the way in.
+// The PC's own token never leaves the Samsung server: the agent adds it as a cookie on the way in.
 'use strict';
 const http = require('http');
 const crypto = require('crypto');

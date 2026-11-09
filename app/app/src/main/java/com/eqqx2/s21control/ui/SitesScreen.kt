@@ -149,7 +149,7 @@ fun SitesScreen(
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.appear(0, animateEntrance).padding(start = 16.dp, end = 16.dp, top = topInset, bottom = 4.dp)) {
                 Text("Sites", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Light)
-                Text("Websites hosted on your S21", color = S21Colors.OnCrimsonMuted, fontSize = 14.sp)
+                Text("Websites hosted on your Samsung server", color = S21Colors.OnCrimsonMuted, fontSize = 14.sp)
             }
 
             state.deploy?.let { d ->

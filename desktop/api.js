@@ -1,5 +1,5 @@
 'use strict';
-// Talks to the S21 agent. Pure Node (fetch), so it is testable without Electron.
+// Talks to the Samsung server agent. Pure Node (fetch), so it is testable without Electron.
 
 const ALLOWED = [
   /^status$/, /^files\/(list|mkdir|rename|download)$/, /^files$/,

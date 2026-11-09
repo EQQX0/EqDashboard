@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/sh
-# Keeps the S21 agent and the Cloudflare tunnel alive. Run every minute from cron:
+# Keeps the Samsung server agent and the Cloudflare tunnel alive. Run every minute from cron:
 #   * * * * * sh $HOME/s21-server/termux/watchdog.sh
-# Only touches the S21 agent (matched by working folder) and cloudflared.
+# Only touches the Samsung server agent (matched by working folder) and cloudflared.
 # Your other apps (gym, eq, nginx) are not started or stopped here.
 AGENT_DIR="$HOME/s21-server/agent"
 LOG="$HOME/s21-server/watchdog.log"

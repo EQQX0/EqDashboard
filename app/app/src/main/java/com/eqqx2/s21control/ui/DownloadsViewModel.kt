@@ -80,10 +80,10 @@ fun downloadsErrorText(r: DownloadsResult<*>, fallback: String = "Action failed"
     DownloadsResult.NotFound -> "That download no longer exists"
     DownloadsResult.EngineError -> "The download engine refused the link"
     is DownloadsResult.EngineMissing ->
-        if (r.engine == "aria2") "aria2 isn't installed on the S21. In Termux run: pkg install aria2"
-        else "yt-dlp isn't installed on the S21. In Termux run: pip install -U yt-dlp"
+        if (r.engine == "aria2") "aria2 isn't installed on the Samsung server. In Termux run: pkg install aria2"
+        else "yt-dlp isn't installed on the Samsung server. In Termux run: pip install -U yt-dlp"
     is DownloadsResult.LowSpace ->
-        "Not enough free space on the S21" + (r.freeBytes?.let { " (${formatBytes(it)} left)" } ?: "")
+        "Not enough free space on the Samsung server" + (r.freeBytes?.let { " (${formatBytes(it)} left)" } ?: "")
     is DownloadsResult.Failure -> r.message
 }
 

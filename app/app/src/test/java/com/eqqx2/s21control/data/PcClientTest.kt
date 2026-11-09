@@ -74,7 +74,7 @@ class PcClientTest {
         server.enqueue(MockResponse().setBody("""{"ok":true}"""))
         server.enqueue(MockResponse().setResponseCode(409).setBody("""{"error":"no_lights"}"""))
         assertEquals("/pc/lights/r/0123456789abcdef0123456789abcdef/", (client.lightsSession(base(), "t", "a1") as PcResult.Ok).value)
-        assertTrue("only the S21's own relay path is accepted", client.lightsSession(base(), "t", "a1") is PcResult.Failure)
+        assertTrue("only the Samsung server's own relay path is accepted", client.lightsSession(base(), "t", "a1") is PcResult.Failure)
         assertTrue(client.lightsSession(base(), "t", "a1") is PcResult.Failure)
         assertEquals(PcResult.NoLights, client.lightsSession(base(), "t", "a1"))
         assertEquals("POST /pc/lights/session", server.takeRequest().let { "${it.method} ${it.path}" })

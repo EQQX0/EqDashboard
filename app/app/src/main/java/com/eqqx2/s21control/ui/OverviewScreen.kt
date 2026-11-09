@@ -100,7 +100,7 @@ fun OverviewScreen(
         AgentUpdateCard(agentUpdate, rememberReducedMotion(), onAgentUpdate, onAgentDismiss)
         Column(Modifier.appear(0, intro).padding(bottom = 4.dp)) {
             Text("Overview", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Light)
-            Text("Live status of your S21 server", color = S21Colors.OnCrimsonMuted, fontSize = 14.sp)
+            Text("Live status of your Samsung server", color = S21Colors.OnCrimsonMuted, fontSize = 14.sp)
             val age = state.lastOkMs?.let { formatAge(now - it) }
             val chipMod = Modifier.padding(top = 12.dp)
             when {

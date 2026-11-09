@@ -75,9 +75,9 @@ fun vpsErrorText(r: VpsResult<*>, fallback: String = "Action failed"): String = 
     VpsResult.Busy -> "That slice is busy, try again in a moment"
     VpsResult.WrongState -> "That can't be done while the slice is in this state"
     VpsResult.KeyOnly -> "This slice only accepts keys, so it has no password"
-    VpsResult.EngineMissing -> "proot-distro isn't installed on the S21. In Termux run: pkg install proot-distro"
+    VpsResult.EngineMissing -> "proot-distro isn't installed on the Samsung server. In Termux run: pkg install proot-distro"
     is VpsResult.LowSpace ->
-        "Not enough free space on the S21" + (r.freeBytes?.let { " (${formatBytes(it)} left)" } ?: "")
+        "Not enough free space on the Samsung server" + (r.freeBytes?.let { " (${formatBytes(it)} left)" } ?: "")
     is VpsResult.Failure -> r.message
 }
 

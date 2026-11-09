@@ -92,7 +92,7 @@ if (-not $Publish) {
     return
 }
 
-$title = "S21 Control $VersionName"
+$title = "Samsung Server $VersionName"
 $releaseNotes = if ($Notes) { $Notes } else { $title }
 & gh release create "v$VersionName" $apk $metaPath --repo $Repo --title $title --notes $releaseNotes
 if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }

@@ -49,7 +49,7 @@ import java.net.URI
 
 /**
  * True when [request] is https on the same host and port as [start] and stays under [start]'s path
- * (the S21's /pc/lights/r/<session>/). Keeps the popup inside its one session.
+ * (the Samsung server's /pc/lights/r/<session>/). Keeps the popup inside its one session.
  */
 fun lightsRequestAllowed(start: String, request: String): Boolean = try {
     val a = URI(start)
@@ -68,7 +68,7 @@ private fun effectivePort(u: URI) = if (u.port == -1) 443 else u.port
 
 private val PopupBg = Color(0xFF14090C)
 
-/** A small window that shows the EqRGB phone remote, relayed by the S21. Only that one session's pages can load in it. */
+/** A small window that shows the EqRGB phone remote, relayed by the Samsung server. Only that one session's pages can load in it. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun LightsPopup(name: String, url: String, reduce: Boolean, onClose: () -> Unit) {

@@ -272,7 +272,7 @@ fun S21App() {
                 if (parsed is PairResult.Ok) {
                     connect(parsed.url, parsed.token, uri)
                 } else {
-                    notice = "That file isn't a valid S21 token file"; noticeTick++
+                    notice = "That file isn't a valid Samsung server token file"; noticeTick++
                     busy = false
                 }
             }
@@ -418,7 +418,7 @@ private fun TopPill(onAbout: () -> Unit, updateAvailable: Boolean, modifier: Mod
         LogoTile(32.dp)
         Spacer(Modifier.size(10.dp))
         Text(
-            "S21 Control", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+            "Samsung Server", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
         )
         Box(

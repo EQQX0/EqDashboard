@@ -1,4 +1,4 @@
-// VPS-style slices for the S21 agent. Zero dependencies; Node 18+ built-ins only.
+// VPS-style slices for the Samsung server agent. Zero dependencies; Node 18+ built-ins only.
 // Each slice is a proot-distro Linux (Debian, Ubuntu or Alpine) running its own sshd on its own port.
 // No root, no systemd, no Docker: proot gives a userland you can ssh into, install packages in and run services from.
 'use strict';

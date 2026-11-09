@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/sh
-# Example boot script: S21 agent + tunnel (+ your other apps). Copy to ~/.termux/boot/start-all.sh and chmod +x.
+# Example boot script: Samsung server agent + tunnel (+ your other apps). Copy to ~/.termux/boot/start-all.sh and chmod +x.
 # Needs the Termux:Boot app opened once. Only ONE script in ~/.termux/boot should start node/cloudflared.
 termux-wake-lock
 # Stop only our own processes. Node apps are matched by working folder, never by name alone.

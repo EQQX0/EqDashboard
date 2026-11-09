@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-/** A wake or shutdown the S21 has sent but the PC hasn't confirmed yet. [until] is a clock time in ms. */
+/** A wake or shutdown the Samsung server has sent but the PC hasn't confirmed yet. [until] is a clock time in ms. */
 data class PcTransition(val waking: Boolean, val until: Long)
 
 /** Words for the status chip. Every state has its own text, so colour is never the only cue. */
@@ -63,7 +63,7 @@ fun lightsLinkError(text: String, pcIp: String): String? {
     else "Paste the EqRGB phone link for this PC. It looks like http://$pcIp:47822/?t=..."
 }
 
-/** The command to paste into PowerShell on the PC, as administrator. It lets the S21 shut the PC down and nothing else. */
+/** The command to paste into PowerShell on the PC, as administrator. It lets the Samsung server shut the PC down and nothing else. */
 fun pcSetupCommand(key: String): String =
     "Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0; " +
         "Set-Service sshd -StartupType Automatic; Start-Service sshd; " +
@@ -87,10 +87,10 @@ fun pcErrorText(r: PcResult<*>, fallback: String = "Action failed"): String = wh
     PcResult.BadLink -> "That isn't the EqRGB phone link for this PC. It looks like http://192.168.0.174:47822/?t=..."
     PcResult.NoLights -> "No lights link saved for this PC yet"
     PcResult.NoSshUser -> "Set up shutdown for this PC first. Open the PC's menu and tap Set up shutdown."
-    PcResult.AuthFailed -> "The PC refused the S21's key. Run the setup command on the PC again."
-    PcResult.Unreachable -> "The S21 could not reach the PC over SSH. Is it on and is OpenSSH running?"
-    PcResult.SshMissing -> "ssh isn't installed on the S21. In Termux run: pkg install openssh"
-    PcResult.SendFailed -> "The S21 could not send the wake signal. Check it is on Wi-Fi."
+    PcResult.AuthFailed -> "The PC refused the Samsung server's key. Run the setup command on the PC again."
+    PcResult.Unreachable -> "The Samsung server could not reach the PC over SSH. Is it on and is OpenSSH running?"
+    PcResult.SshMissing -> "ssh isn't installed on the Samsung server. In Termux run: pkg install openssh"
+    PcResult.SendFailed -> "The Samsung server could not send the wake signal. Check it is on Wi-Fi."
     is PcResult.Failure -> r.message
 }
 
@@ -196,14 +196,14 @@ class PcViewModel(
         }
     }
 
-    /** Asks the S21 for its public SSH key (making it the first time). [done] gets the key or an error text. */
+    /** Asks the Samsung server for its public SSH key (making it the first time). [done] gets the key or an error text. */
     fun fetchKey(done: (key: String?, error: String?) -> Unit) {
         val token = store.token ?: return fail401()
         viewModelScope.launch {
             when (val r = client.key(store.baseUrl, token)) {
                 is PcResult.Ok -> done(r.value, null)
                 PcResult.Unauthorized -> fail401()
-                else -> done(null, pcErrorText(r, "Could not get the S21's key"))
+                else -> done(null, pcErrorText(r, "Could not get the Samsung server's key"))
             }
         }
     }
@@ -231,7 +231,7 @@ class PcViewModel(
         }
     }
 
-    /** Opens an EqRGB session through the S21, so it works away from home. [done] gets the address to show or an error text. */
+    /** Opens an EqRGB session through the Samsung server, so it works away from home. [done] gets the address to show or an error text. */
     fun openLights(item: PcItem, done: (url: String?, error: String?) -> Unit) {
         val token = store.token ?: return fail401()
         viewModelScope.launch {

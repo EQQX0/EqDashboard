@@ -111,7 +111,7 @@ fun DownloadsScreen(
         Column(Modifier.appear(0, animateEntrance).padding(start = 16.dp, end = 16.dp, top = topInset, bottom = 4.dp)) {
             Text("Downloads", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Light)
             Text(
-                state.freeBytes?.let { "Save links to your S21 • ${formatBytes(it)} free" } ?: "Save links to your S21",
+                state.freeBytes?.let { "Save links to your Samsung server • ${formatBytes(it)} free" } ?: "Save links to your Samsung server",
                 color = S21Colors.OnCrimsonMuted, fontSize = 14.sp,
             )
         }
@@ -316,7 +316,7 @@ private fun SetupCard(aria2Missing: Boolean, ytdlpMissing: Boolean) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Finish setup on your phone", color = S21Colors.OnGlass, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                "$missing isn't ready on the S21 yet. Run this in Termux. This screen updates by itself within a minute.",
+                "$missing isn't ready on the Samsung server yet. Run this in Termux. This screen updates by itself within a minute.",
                 color = S21Colors.OnGlassMuted, fontSize = 16.sp,
             )
             Column(

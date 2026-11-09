@@ -30,7 +30,7 @@ fun agentUpdateErrorText(r: AgentUpdateResult<*>): String = when (r) {
         "bad_checksum", "bad_archive" -> "The downloaded agent failed its safety check, so nothing was changed"
         "rate_limited" -> "GitHub is limiting checks right now. Try again later."
         "untrusted_host", "bad_url" -> "The release points somewhere untrusted, so nothing was changed"
-        else -> "The S21 could not reach GitHub. Try again in a moment."
+        else -> "The Samsung server could not reach GitHub. Try again in a moment."
     }
     is AgentUpdateResult.Failure -> r.message
 }

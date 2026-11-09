@@ -1,4 +1,4 @@
-// Static-site hosting for the S21 agent. Zero dependencies; Node 18+ built-ins only.
+// Static-site hosting for the Samsung server agent. Zero dependencies; Node 18+ built-ins only.
 // Sites live in FILES_ROOT/sites/<name>/. A second HTTP server (public, no auth) serves them by Host header;
 // the management API (bearer-auth, wired up by server.js) creates, updates, deploys and deletes them.
 'use strict';
@@ -444,7 +444,7 @@ function createSites(opts = {}) {
 <title>${name} is live</title>
 <style>body{font:16px/1.5 system-ui,sans-serif;max-width:36rem;margin:15vh auto;padding:0 1rem;color:#222}code{background:#eee;padding:.1em .3em;border-radius:3px}</style>
 </head><body><h1>${name}.${DOMAIN} is live</h1>
-<p>Upload your files to <code>sites/${name}/</code> in the S21 cloud files, or deploy a zip, and replace this page with your own <code>index.html</code>.</p>
+<p>Upload your files to <code>sites/${name}/</code> in the Samsung server cloud files, or deploy a zip, and replace this page with your own <code>index.html</code>.</p>
 </body></html>
 `;
     await fsp.writeFile(path.join(dir, 'index.html'), page);

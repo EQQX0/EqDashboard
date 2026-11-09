@@ -295,7 +295,7 @@ private fun AddPcDialog(saving: Boolean, onAdd: (String, String, String, String,
 }
 
 /**
- * One setup for everything the S21 does with this PC: shutdown (a Windows user and one PowerShell command) and
+ * One setup for everything the Samsung server does with this PC: shutdown (a Windows user and one PowerShell command) and
  * lights (the EqRGB phone link). Each part is optional, so the PC can be set up in one go or in two visits.
  * Turning on needs none of it.
  */
@@ -344,17 +344,17 @@ private fun SetupDialog(item: PcItem, vm: PcViewModel, onDismiss: () -> Unit) {
                     supportingText = { Text(userError ?: if (item.sshUser.isNotBlank()) "Saved" else "The name you sign in to Windows with", fontSize = 14.sp) },
                     textStyle = TextStyle(fontSize = 16.sp), colors = fieldColors(), modifier = Modifier.fillMaxWidth(),
                 )
-                Text("On the PC, open PowerShell as administrator and paste this once. It installs OpenSSH and lets the S21 shut the PC down, nothing else.", fontSize = 14.sp)
+                Text("On the PC, open PowerShell as administrator and paste this once. It installs OpenSSH and lets the Samsung server shut the PC down, nothing else.", fontSize = 14.sp)
                 val k = key
                 if (k != null) CommandBlock(pcSetupCommand(k), "Copy PowerShell command")
-                else Text(keyError ?: "Getting the S21's key", fontSize = 14.sp, color = if (keyError != null) S21Colors.OnGlassCritical else S21Colors.OnGlassMuted)
+                else Text(keyError ?: "Getting the Samsung server's key", fontSize = 14.sp, color = if (keyError != null) S21Colors.OnGlassCritical else S21Colors.OnGlassMuted)
 
                 if (!showLights) {
                     TextAction("Also add EqRGB lights (optional)", { showLights = true }, Modifier.fillMaxWidth())
                 } else {
                     Text("Lights", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = S21Colors.OnGlass)
                     Text(
-                        "In EqRGB on the PC, turn on the phone remote and copy its link. The Lights button then works from any network, through the S21, while the PC is on and EqRGB is running.",
+                        "In EqRGB on the PC, turn on the phone remote and copy its link. The Lights button then works from any network, through the Samsung server, while the PC is on and EqRGB is running.",
                         fontSize = 14.sp,
                     )
                     if (item.hasLights) Text("A link is saved. Paste a new one to replace it.", fontSize = 14.sp, color = S21Colors.OnGlass)

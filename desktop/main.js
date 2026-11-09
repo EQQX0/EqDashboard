@@ -29,7 +29,7 @@ const api = createApi({ getConfig: () => cache() });
 function createWindow() {
   const win = new BrowserWindow({
     width: 1100, height: 760, minWidth: 760, minHeight: 520,
-    backgroundColor: '#0F172A', title: 'S21 Control', autoHideMenuBar: true,
+    backgroundColor: '#0F172A', title: 'Samsung Server', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

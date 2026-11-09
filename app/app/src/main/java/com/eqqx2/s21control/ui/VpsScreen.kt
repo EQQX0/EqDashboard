@@ -107,7 +107,7 @@ fun VpsScreen(
         Column(Modifier.appear(0, animateEntrance).padding(start = 16.dp, end = 16.dp, top = topInset, bottom = 4.dp)) {
             Text("VPS", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Light)
             Text(
-                if (state.loaded) "Linux slices on your S21 • ${state.items.size} of ${state.maxSlices}" else "Linux slices on your S21",
+                if (state.loaded) "Linux slices on your Samsung server • ${state.items.size} of ${state.maxSlices}" else "Linux slices on your Samsung server",
                 color = S21Colors.OnCrimsonMuted, fontSize = 14.sp,
             )
         }
@@ -334,7 +334,7 @@ private fun SetupCard() {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Finish setup on your phone", color = S21Colors.OnGlass, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                "proot-distro isn't ready on the S21 yet. Run this in Termux. This screen updates by itself within a minute.",
+                "proot-distro isn't ready on the Samsung server yet. Run this in Termux. This screen updates by itself within a minute.",
                 color = S21Colors.OnGlassMuted, fontSize = 16.sp,
             )
             CommandBlock(SETUP_VPS_COMMAND, "Copy setup command")

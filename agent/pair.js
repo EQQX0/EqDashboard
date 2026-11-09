@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-// Writes a pairing file the S21 Control app can import. Never prints the token.
+// Writes a pairing file the Samsung Server app can import. Never prints the token.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
