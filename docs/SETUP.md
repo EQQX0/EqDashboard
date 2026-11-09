@@ -10,6 +10,16 @@ This guide takes a spare Android phone from zero to the app showing its status. 
 - A domain managed by Cloudflare
 - An Android phone to run the app. It can be the same one.
 
+## Quick install (one command)
+
+Open Termux and paste this, with your own domain at the end:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/EQQX0/EqDashboard/main/termux/install.sh | bash -s -- yourdomain.com
+```
+
+It installs everything, links your domain (it prints a link to approve in a browser), sets the agent to start on boot, starts it, and prints your token and server address. Then do the two phone settings it lists and jump to [step 5](#5-install-the-app-and-sign-in). Leave the domain off to skip the Cloudflare part. Run it again any time to update. Steps 2 to 4 below are the same thing by hand.
+
 ## 2. Put the agent on the phone
 
 Open Termux and run:
