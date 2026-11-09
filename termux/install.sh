@@ -73,11 +73,15 @@ if [ -n "$DOMAIN" ]; then
       termux-setup-storage 2>/dev/null || true   # Android asks for permission; tap Allow
       for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do [ -d "$HOME/storage/downloads" ] && break; sleep 1; done
     fi
-    if [ -d "$HOME/storage/downloads" ]; then PAIR="$HOME/storage/downloads/samsung-server.pair"; else PAIR="$HOME/samsung-server.pair"; fi
+    if [ -d "$HOME/storage/downloads" ]; then
+      PAIR="$HOME/storage/downloads/samsung-server.pair"; WHERE="it is in your Downloads folder"
+    else
+      PAIR="$HOME/samsung-server.pair"; WHERE="storage access was not allowed, so it is only in Termux: run termux-setup-storage, allow it, then rerun this installer to put it in Downloads"
+    fi
     if (cd "$DIR/agent" && node pair.js --url "https://api.$DOMAIN" --out "$PAIR" --force >/dev/null); then
       echo
       echo "Pairing file: $PAIR"
-      echo " - Phone app: tap "Import token file" on the sign-in screen and pick it (it is in your Downloads folder)."
+      echo " - Phone app: tap 'Import token file' on the sign-in screen and pick it ($WHERE)."
       echo " - Windows app: put the file in Downloads or Desktop and the app signs in by itself."
       echo " - Send it to another device: termux-share $PAIR"
       echo " - It holds your token. Delete it when done: rm $PAIR"
