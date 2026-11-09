@@ -111,6 +111,14 @@ test('check reports an available update', async () => {
   assert.deepEqual([r.current, r.latest, r.available], ['0.7.0', '0.8.0', true]);
 });
 
+test('check finds the samsung-agent zip name', async () => {
+  const { agent } = install('0.7.0');
+  const gh = await fakeGithub(makeZip(goodFiles('0.8.0')), { name: 'samsung-agent-0.8.0.zip' });
+  const { su } = make(agent, gh);
+  const r = await su.check();
+  assert.deepEqual([r.latest, r.available], ['0.8.0', true]);
+});
+
 test('check says up to date when versions match or the release has no agent zip', async () => {
   const { agent } = install('0.8.0');
   const gh = await fakeGithub(makeZip(goodFiles('0.8.0')));

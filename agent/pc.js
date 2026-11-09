@@ -227,7 +227,7 @@ function createPc(opts = {}) {
   async function ensureKey() {
     if (fs.existsSync(KEY) && fs.existsSync(KEY + '.pub')) return;
     fs.mkdirSync(DATA_DIR, { recursive: true });
-    const r = await run(KEYGEN, ['-t', 'ed25519', '-N', '', '-f', KEY, '-C', 's21-agent'], 20000);
+    const r = await run(KEYGEN, ['-t', 'ed25519', '-N', '', '-f', KEY, '-C', 'samsung-server'], 20000);
     if (r.code !== 0 || !fs.existsSync(KEY + '.pub')) throw new ApiError(503, 'ssh_missing');
   }
 

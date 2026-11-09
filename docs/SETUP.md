@@ -130,7 +130,7 @@ keyPassword=...
 scripts/release.ps1 -VersionName 1.0.0 -VersionCode 1 -Notes "First release" -Publish
 ```
 
-The script builds, runs the tests, signs the APK and creates the GitHub release in the repository named by `UPDATE_REPO`. Attach an `s21-agent-<version>.zip` (holding `agent/*.js`, `agent/package.json`, `agent/README-*.md` and `termux/*.sh`) if you want the agent to update itself.
+The script builds, runs the tests, signs the APK and creates the GitHub release in the repository named by `UPDATE_REPO`. Attach an `samsung-agent-<version>.zip` (holding `agent/*.js`, `agent/package.json`, `agent/README-*.md` and `termux/*.sh`) if you want the agent to update itself.
 
 The script needs Gradle and the Android SDK. Edit the `$Gradle` path at the top of the script to match your machine.
 

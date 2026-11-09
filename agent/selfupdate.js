@@ -1,5 +1,5 @@
 // Agent self-update. Zero dependencies; Node 18+ built-ins only.
-// Checks the newest GitHub release for an s21-agent-X.Y.Z.zip asset, downloads it from GitHub only,
+// Checks the newest GitHub release for a samsung-agent-X.Y.Z.zip asset, downloads it from GitHub only,
 // checks every .js file parses, copies the files over the running agent and restarts it.
 'use strict';
 const fs = require('fs');
@@ -12,7 +12,8 @@ const crypto = require('crypto');
 const { spawn, execFile } = require('child_process');
 const { extract } = require('./zip');
 
-const ASSET_RE = /^s21-agent-(\d+\.\d+\.\d+)\.zip$/;
+// samsung-agent-X.Y.Z.zip is the name now; s21-agent-X.Y.Z.zip is the old name that agents before 0.11.2 look for.
+const ASSET_RE = /^(?:samsung|s21)-agent-(\d+\.\d+\.\d+)\.zip$/;
 const MAX_ZIP = 8 * 1024 * 1024;
 const COPY_RULES = [
   { dir: 'agent', test: (n) => /^[\w-]+\.js$/.test(n) || n === 'package.json' || /^README-[\w-]+\.md$/.test(n), to: '.' },
@@ -73,7 +74,7 @@ function createSelfUpdate(opts = {}) {
       const secure = url.protocol === 'https:';
       if (!insecureTest && (!secure || !hostOk(url.hostname))) return reject(new ApiError(502, 'untrusted_host'));
       const lib = secure ? https : http;
-      const req = lib.get(url, { headers: { 'User-Agent': 's21-agent', Accept: accept || '*/*' }, timeout: 20000 }, (r) => {
+      const req = lib.get(url, { headers: { 'User-Agent': 'samsung-agent', Accept: accept || '*/*' }, timeout: 20000 }, (r) => {
         if ([301, 302, 303, 307, 308].includes(r.statusCode) && r.headers.location) {
           r.resume();
           if (hops >= 4) return reject(new ApiError(502, 'too_many_redirects'));
