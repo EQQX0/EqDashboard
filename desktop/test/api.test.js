@@ -1,0 +1,45 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert');
+const { createApi, normalizeBase, allowedPath } = require('../api');
+
+test('normalizeBase requires https and trims slashes', () => {
+  assert.strictEqual(normalizeBase(' https://api.example.com/ '), 'https://api.example.com');
+  assert.throws(() => normalizeBase('http://api.example.com'));
+  assert.throws(() => normalizeBase(''));
+});
+
+test('allowedPath accepts known routes and rejects traversal', () => {
+  assert.ok(allowedPath('status'));
+  assert.ok(allowedPath('files/list'));
+  assert.ok(allowedPath('vps'));
+  assert.ok(!allowedPath('agent/update'));
+  assert.ok(!allowedPath('files/../x'));
+  assert.ok(!allowedPath(undefined));
+});
+
+test('call sends bearer token, query and JSON body', async () => {
+  let seen;
+  const api = createApi({
+    getConfig: () => ({ baseUrl: 'https://api.example.com', token: 'tok' }),
+    fetchImpl: async (url, init) => { seen = { url: String(url), init }; return { ok: true, status: 200, text: async () => '{"ok":1}' }; },
+  });
+  const out = await api.call({ method: 'POST', path: 'vps/start', body: { id: 'a' } });
+  assert.deepStrictEqual(out, { ok: 1 });
+  assert.strictEqual(seen.url, 'https://api.example.com/vps/start');
+  assert.strictEqual(seen.init.headers.Authorization, 'Bearer tok');
+  assert.strictEqual(seen.init.body, '{"id":"a"}');
+  await api.call({ path: 'files/list', query: { path: 'a b' } });
+  assert.strictEqual(seen.url, 'https://api.example.com/files/list?path=a+b');
+});
+
+test('call maps 401 and refuses when signed out', async () => {
+  const bad = createApi({
+    getConfig: () => ({ baseUrl: 'https://x.example.com', token: 't' }),
+    fetchImpl: async () => ({ ok: false, status: 401, text: async () => '' }),
+  });
+  await assert.rejects(bad.call({ path: 'status' }), /Wrong token/);
+  const out = createApi({ getConfig: () => ({}) });
+  await assert.rejects(out.call({ path: 'status' }), /Not signed in/);
+  await assert.rejects(out.call({ path: 'agent/update' }), /not allowed/);
+});

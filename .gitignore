@@ -21,3 +21,7 @@ app/keystore.properties
 scripts/out/
 
 agent/data/
+
+# desktop app
+desktop/node_modules/
+desktop/dist/

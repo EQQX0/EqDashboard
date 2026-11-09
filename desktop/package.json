@@ -1,0 +1,29 @@
+{
+  "name": "s21-control-desktop",
+  "productName": "S21 Control",
+  "version": "0.11.0",
+  "description": "Windows client for the S21 home server",
+  "main": "main.js",
+  "author": "EQQX0",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "dist": "electron-builder --win portable --x64"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.eqqx2.s21control.desktop",
+    "productName": "S21 Control",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "api.js", "renderer/**/*"],
+    "win": {
+      "target": [{ "target": "portable", "arch": ["x64"] }],
+      "artifactName": "S21-Control-${version}.exe",
+      "signAndEditExecutable": false
+    }
+  }
+}

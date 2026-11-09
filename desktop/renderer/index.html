@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S21 Control</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<section id="login" hidden>
+  <form id="loginForm" class="card login">
+    <h1>S21 Control</h1>
+    <p class="muted">Sign in to your own server.</p>
+    <label for="url">Server address</label>
+    <input id="url" type="url" placeholder="https://api.example.com" autocomplete="off" required>
+    <label for="token">Token</label>
+    <input id="token" type="password" autocomplete="off" required>
+    <p id="loginErr" class="err" role="alert"></p>
+    <button class="btn primary" type="submit">Sign in</button>
+  </form>
+</section>
+
+<div id="shell" hidden>
+  <nav id="nav" aria-label="Sections"></nav>
+  <main>
+    <header>
+      <h2 id="title"></h2>
+      <span id="stamp" class="muted"></span>
+      <button id="refresh" class="btn">Refresh</button>
+    </header>
+    <p id="banner" class="err" role="alert" hidden></p>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>
