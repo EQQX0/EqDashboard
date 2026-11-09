@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- allowBackup stays false: the encrypted prefs cannot be restored from a backup because
+         their Keystore key is bound to this device. -->
     <application
         android:allowBackup="false"
         android:label="S21 Control"

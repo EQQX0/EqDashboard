@@ -66,6 +66,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import android.content.Context
+import android.net.Uri
+import android.provider.DocumentsContract
+import com.eqqx2.s21control.data.PairResult
+import com.eqqx2.s21control.data.parsePairFile
+import com.eqqx2.s21control.data.readPairText
 import com.eqqx2.s21control.BuildConfig
 import com.eqqx2.s21control.data.ApkInstaller
 import com.eqqx2.s21control.data.UpdateClient
@@ -147,6 +152,52 @@ fun S21App() {
             }
         }
 
+        // Picked token file, kept only so it can be deleted after a successful import.
+        var importedUri by remember { mutableStateOf<Uri?>(null) }
+        var importMessage by remember { mutableStateOf<String?>(null) }
+        val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+        fun connect(url: String, token: String, picked: Uri?) {
+            busy = true
+            notice = null
+            scope.launch {
+                when (val r = client.fetchStatus(url, token)) {
+                    is FetchResult.Ok -> {
+                        store.baseUrl = url
+                        store.token = token
+                        if (picked != null) { importedUri = picked; importMessage = null }
+                        loggedIn = true
+                    }
+                    FetchResult.Unauthorized -> { notice = "Token rejected"; noticeTick++ }
+                    FetchResult.RateLimited -> { notice = "Too many requests, retrying later"; noticeTick++ }
+                    is FetchResult.Failure -> { notice = r.message; noticeTick++ }
+                }
+                busy = false
+            }
+        }
+
+        fun import(uri: Uri) {
+            busy = true
+            notice = null
+            scope.launch {
+                val text = withContext(Dispatchers.IO) {
+                    try {
+                        context.contentResolver.openInputStream(uri)?.use { readPairText(it) }
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                val parsed = text?.let { parsePairFile(it) }
+                if (parsed is PairResult.Ok) {
+                    connect(parsed.url, parsed.token, uri)
+                } else {
+                    notice = "That file isn't a valid S21 token file"; noticeTick++
+                    busy = false
+                }
+            }
+        }
+
+        Box(Modifier.fillMaxSize()) {
         Crossfade(targetState = loggedIn, animationSpec = if (reduce) snap() else tween(300), label = "auth") { isIn ->
         if (!isIn) {
             LoginScreen(
@@ -154,23 +205,8 @@ fun S21App() {
                 notice = notice,
                 noticeTick = noticeTick,
                 busy = busy,
-                onConnect = { url, token ->
-                    busy = true
-                    notice = null
-                    scope.launch {
-                        when (val r = client.fetchStatus(url, token)) {
-                            is FetchResult.Ok -> {
-                                store.baseUrl = url
-                                store.token = token
-                                loggedIn = true
-                            }
-                            FetchResult.Unauthorized -> { notice = "Token rejected"; noticeTick++ }
-                            FetchResult.RateLimited -> { notice = "Too many requests, retrying later"; noticeTick++ }
-                            is FetchResult.Failure -> { notice = r.message; noticeTick++ }
-                        }
-                        busy = false
-                    }
-                },
+                onConnect = { url, token -> connect(url, token, null) },
+                onImport = { uri -> import(uri) },
             )
         } else {
             Shell(
@@ -184,7 +220,27 @@ fun S21App() {
                     filesVm.reset()
                     notice = null
                     loggedIn = false
+                    importedUri = null
                 },
+            )
+        }
+        }
+        val picked = importedUri
+        if (picked != null && loggedIn) {
+            ImportedCard(
+                message = importMessage,
+                onDelete = {
+                    scope.launch {
+                        val ok = withContext(Dispatchers.IO) {
+                            try { DocumentsContract.deleteDocument(context.contentResolver, picked) } catch (e: Exception) { false }
+                        }
+                        if (ok) importedUri = null
+                        else importMessage = "Couldn't delete it; remove it with: rm ~/storage/downloads/s21-control.s21"
+                    }
+                },
+                onDismiss = { importedUri = null },
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .padding(bottom = navBottom + NavHeight + 32.dp, start = 16.dp, end = 16.dp),
             )
         }
         }

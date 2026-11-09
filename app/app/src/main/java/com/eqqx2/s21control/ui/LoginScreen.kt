@@ -1,5 +1,14 @@
 package com.eqqx2.s21control.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +51,35 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+private val PICK_TYPES = arrayOf("application/json", "application/octet-stream", "text/plain", "*/*")
+
+/** Red-glass outlined pill for secondary actions on a glass card (dark text on pink, 48dp min). */
+@Composable
+fun SecondaryPillButton(
+    text: String,
+    enabled: Boolean = true,
+    description: String = text,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier
+            .heightIn(min = 48.dp)
+            .clip(S21Shapes.Pill)
+            .background(S21Colors.ChipErrorFill.copy(alpha = if (enabled) 0.14f else 0.06f))
+            .border(1.dp, S21Colors.ChipErrorFill.copy(alpha = if (enabled) 0.7f else 0.3f), S21Shapes.Pill)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = description }
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+            color = if (enabled) S21Colors.OnGlass else S21Colors.OnGlassMuted,
+        )
+    }
+}
+
 @Composable
 fun LoginScreen(
     initialUrl: String,
@@ -49,7 +87,11 @@ fun LoginScreen(
     noticeTick: Int,
     busy: Boolean,
     onConnect: (url: String, token: String) -> Unit,
+    onImport: (Uri) -> Unit,
 ) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onImport(uri)
+    }
     var url by remember { mutableStateOf(initialUrl) }
     var token by remember { mutableStateOf("") }
     var show by remember { mutableStateOf(false) }
@@ -140,6 +182,13 @@ fun LoginScreen(
                         enabled = !busy && token.isNotBlank() && url.isNotBlank(),
                         modifier = Modifier.fillMaxWidth(),
                     ) { onConnect(url.trim(), token.trim()) }
+                    Spacer(Modifier.height(12.dp))
+                    SecondaryPillButton(
+                        text = "Import token file",
+                        enabled = !busy,
+                        description = "Import token file from your device",
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { picker.launch(PICK_TYPES) }
                 }
             }
         }
