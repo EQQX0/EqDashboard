@@ -8,16 +8,18 @@ DOMAIN="${1:-$DOMAIN}"
 REPO="${REPO:-https://github.com/EQQX0/EqDashboard.git}"
 DIR="$HOME/s21-server"
 
-echo "==> Updating Termux first (a half-updated Termux breaks git)"
-export DEBIAN_FRONTEND=noninteractive
-pkg update -y
-pkg upgrade -y -o Dpkg::Options::=--force-confnew
-echo "==> Installing git"
-pkg install -y git curl
-
 if [ "$DOMAIN" = "yourdomain.com" ]; then
   echo "Replace yourdomain.com with your real domain (or leave it off), then run it again."; exit 1
 fi
+
+# Termux is upgraded as a whole with apt-get, which works even when curl or git are half-updated and broken.
+echo "==> Updating Termux first (a half-updated Termux breaks git and curl)"
+export DEBIAN_FRONTEND=noninteractive
+APT_OPTS="-y -o Dpkg::Options::=--force-confnew"
+apt-get update -y
+apt-get full-upgrade $APT_OPTS
+echo "==> Installing git"
+apt-get install $APT_OPTS git curl
 
 echo "==> Getting the code"
 if [ -d "$DIR/.git" ]; then

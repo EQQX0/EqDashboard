@@ -146,6 +146,7 @@ The script needs Gradle and the Android SDK. Edit the `$Gradle` path at the top 
 
 ## If something fails
 
+- **`CANNOT LINK EXECUTABLE "curl"` or git fails to start in Termux:** Termux is half-updated. Run `apt update && apt full-upgrade -y`, then run the installer again. The installer does this upgrade itself, but it can't run if `curl` is already broken and can't download it.
 - **401 from the tunnel:** the token is wrong or missing. Read `agent/.token` again.
 - **502 or 1033 from Cloudflare:** the agent or `cloudflared` is not running. Check `~/s21-server/agent.log` and `~/cloudflared.log`.
 - **The app says the server address must be https:** use the `https://` hostname from your tunnel. Plain `http://` is refused.
