@@ -47,19 +47,19 @@ It prints that it is listening on `127.0.0.1:8787` and writes the token to `agen
 bash ~/s21-server/termux/tunnel-setup.sh yourdomain.com
 ```
 
-A browser link appears. Open it, pick your domain and approve. The script creates a tunnel named `s21` and points `api.yourdomain.com` at the agent.
+A browser link appears. Open it, pick your domain and approve. The script creates a tunnel named `samsung-server` and points `api.yourdomain.com` at the agent.
 
 Start the agent and the tunnel, then test from another network (mobile data works):
 
 ```sh
 cd ~/s21-server/agent && nohup node server.js >> ~/s21-server/agent.log 2>&1 &
-nohup cloudflared tunnel run s21 >> ~/cloudflared.log 2>&1 &
+nohup cloudflared tunnel run >> ~/cloudflared.log 2>&1 &
 curl -H "Authorization: Bearer $(cat ~/s21-server/agent/.token)" https://api.yourdomain.com/status
 ```
 
 You should see JSON with CPU, memory and storage. Without the token the answer is 401.
 
-If a tunnel named `s21` already exists, skip the script. Add a hostname to `~/.cloudflared/config.yml` and run `cloudflared tunnel route dns s21 api.yourdomain.com`.
+If a tunnel named `samsung-server` already exists (`s21` on older setups), skip the script. Add a hostname to `~/.cloudflared/config.yml` and run `cloudflared tunnel route dns samsung-server api.yourdomain.com`.
 
 ## 4. Keep it running
 

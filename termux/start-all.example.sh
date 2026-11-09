@@ -8,6 +8,6 @@ stop_node_in "$HOME/s21-server/agent"
 pkill cloudflared 2>/dev/null
 sleep 2
 (cd ~/s21-server/agent && nohup node server.js >> ~/s21-server/agent.log 2>&1 &)
-nohup cloudflared tunnel run s21 >> ~/cloudflared.log 2>&1 &
+nohup cloudflared tunnel run >> ~/cloudflared.log 2>&1 &
 # Add your other services below, each started in a subshell with its own folder, e.g.:
 # (cd ~/gym/api && set -a && . ~/gym/.env && set +a && nohup node server.js >> ~/gym/api.log 2>&1 &)

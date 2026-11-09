@@ -29,5 +29,5 @@ esac
 # Tunnel: restart only if no cloudflared process exists.
 if ! pgrep -x cloudflared >/dev/null 2>&1; then
   log "cloudflared not running, restarting"
-  nohup cloudflared tunnel run s21 >> "$HOME/cloudflared.log" 2>&1 &
+  nohup cloudflared tunnel run >> "$HOME/cloudflared.log" 2>&1 &
 fi

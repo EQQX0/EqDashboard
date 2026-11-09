@@ -32,13 +32,13 @@ Site behaviour: directories serve `index.html`, `404.html` is used if present, a
 
 ```sh
 sed -i '/^  - service: http_status:404/i\  - hostname: "*.yourdomain.com"\n    service: http://127.0.0.1:8790' ~/.cloudflared/config.yml
-cloudflared tunnel route dns s21 "*.yourdomain.com"
+cloudflared tunnel route dns samsung-server "*.yourdomain.com"   # the tunnel is named s21 on older setups
 ```
 
 Then restart cloudflared:
 
 ```sh
-pkill cloudflared; nohup cloudflared tunnel run s21 >> ~/cloudflared.log 2>&1 &
+pkill cloudflared; nohup cloudflared tunnel run >> ~/cloudflared.log 2>&1 &
 ```
 
 Explicit DNS records (api, gym, downloader, files, www, apex) keep winning over the wildcard. The free Cloudflare certificate covers one label only: `blog.yourdomain.com` works, `a.b.yourdomain.com` does not.

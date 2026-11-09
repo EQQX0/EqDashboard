@@ -1,12 +1,12 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # Run once in Termux: bash tunnel-setup.sh yourdomain.com
-# Creates a Cloudflare tunnel named "s21" and routes api.<domain> to the agent. Your main site is not touched.
-# If a tunnel named "s21" already works on this phone (its key file is here), this script leaves it alone:
-# add a hostname to ~/.cloudflared/config.yml and run `cloudflared tunnel route dns s21 <host>` instead.
+# Creates a Cloudflare tunnel named "samsung-server" and routes api.<domain> to the agent. Your main site is not touched.
+# If a tunnel named "samsung-server" already works on this phone (its key file is here), this script leaves it alone:
+# add a hostname to ~/.cloudflared/config.yml and run `cloudflared tunnel route dns samsung-server <host>` instead.
 set -e
 DOMAIN="${1:-$DOMAIN}"
 if [ -z "$DOMAIN" ]; then echo "Usage: bash tunnel-setup.sh yourdomain.com"; exit 1; fi
-NAME=s21
+NAME=samsung-server
 
 # Prints the id of the tunnel called $NAME, or nothing. Tries the list first, then asks about the tunnel by name.
 tunnel_id() {
