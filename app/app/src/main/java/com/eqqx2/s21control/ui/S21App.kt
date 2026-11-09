@@ -398,10 +398,10 @@ private fun TopPill(onAbout: () -> Unit, updateAvailable: Boolean, modifier: Mod
             Modifier
                 .size(48.dp)
                 .clip(S21Shapes.Circle)
-                .clickable(onClickLabel = "Open about and updates", role = Role.Button, onClick = onAbout)
+                .clickable(onClickLabel = "Open settings and updates", role = Role.Button, onClick = onAbout)
                 .semantics {
                     contentDescription =
-                        if (updateAvailable) "About and updates, update available" else "About and updates"
+                        if (updateAvailable) "Settings and updates, update available" else "Settings and updates"
                 },
             contentAlignment = Alignment.Center,
         ) {
@@ -410,7 +410,7 @@ private fun TopPill(onAbout: () -> Unit, updateAvailable: Boolean, modifier: Mod
                     .border(1.dp, S21Colors.GlassBorder, S21Shapes.Circle),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("A", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                GlassIcon(S21Icons.Settings, null, Color.White, 22.dp)
             }
             if (updateAvailable) {
                 Box(
