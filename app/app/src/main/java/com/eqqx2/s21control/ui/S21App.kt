@@ -79,6 +79,7 @@ import kotlinx.coroutines.withContext
 import com.eqqx2.s21control.data.AgentClient
 import com.eqqx2.s21control.data.FetchResult
 import com.eqqx2.s21control.data.FilesClient
+import com.eqqx2.s21control.data.SitesClient
 import com.eqqx2.s21control.data.TokenStore
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -105,6 +106,10 @@ fun S21App() {
         val filesClient = remember { FilesClient() }
         val filesVm: FilesViewModel = viewModel(factory = viewModelFactory {
             initializer { FilesViewModel(filesClient, store) }
+        })
+        val sitesClient = remember { SitesClient() }
+        val sitesVm: SitesViewModel = viewModel(factory = viewModelFactory {
+            initializer { SitesViewModel(sitesClient, store) }
         })
         val updateVm: UpdateViewModel = viewModel(factory = viewModelFactory {
             initializer {
@@ -146,6 +151,17 @@ fun S21App() {
             if (filesState.unauthorized) {
                 loggedIn = false
                 notice = "Token rejected"; noticeTick++
+                filesVm.reset()
+                vm.reset()
+            }
+        }
+
+        val sitesState by sitesVm.state.collectAsState()
+        LaunchedEffect(sitesState.unauthorized) {
+            if (sitesState.unauthorized) {
+                loggedIn = false
+                notice = "Token rejected"; noticeTick++
+                sitesVm.reset()
                 filesVm.reset()
                 vm.reset()
             }
@@ -211,12 +227,14 @@ fun S21App() {
             Shell(
                 vm = vm,
                 filesVm = filesVm,
+                sitesVm = sitesVm,
                 updateVm = updateVm,
                 onLogout = {
                     store.clearToken()
                     updateVm.reset()
                     vm.reset()
                     filesVm.reset()
+                    sitesVm.reset()
                     notice = null
                     loggedIn = false
                     importedUri = null
@@ -250,7 +268,13 @@ private val TopBarHeight = 76.dp
 private val NavHeight = 68.dp
 
 @Composable
-private fun Shell(vm: StatusViewModel, filesVm: FilesViewModel, updateVm: UpdateViewModel, onLogout: () -> Unit) {
+private fun Shell(
+    vm: StatusViewModel,
+    filesVm: FilesViewModel,
+    sitesVm: SitesViewModel,
+    updateVm: UpdateViewModel,
+    onLogout: () -> Unit,
+) {
     val updateState by updateVm.state.collectAsState()
     var showSheet by rememberSaveable { mutableStateOf(false) }
     InstallLauncher(updateVm)
@@ -286,6 +310,11 @@ private fun Shell(vm: StatusViewModel, filesVm: FilesViewModel, updateVm: Update
                         updateInfo = updateState.available, onUpdateClick = { showSheet = true },
                     )
                     1 -> FilesScreen(filesVm, topInset, navClearance + 8.dp, Modifier.fillMaxSize())
+                    3 -> SitesScreen(
+                        sitesVm, topInset, navClearance + 8.dp,
+                        onOpenFiles = { path -> filesVm.openPath(path); tab = 1 },
+                        modifier = Modifier.fillMaxSize(),
+                    )
                     else -> ComingSoon(tabs[t].label, topInset, navClearance)
                 }
             }

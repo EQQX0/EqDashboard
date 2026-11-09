@@ -81,6 +81,9 @@ class FilesViewModel(
         refresh()
     }
 
+    /** Jumps straight to [path] (used by other tabs, e.g. Sites -> Open files). */
+    fun openPath(path: String) = open(path)
+
     /** Goes up one folder; returns false when already at the root. */
     fun up(): Boolean {
         val p = _state.value.path

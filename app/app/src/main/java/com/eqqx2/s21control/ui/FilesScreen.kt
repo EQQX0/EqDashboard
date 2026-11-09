@@ -548,7 +548,7 @@ private fun entryMeta(e: FileEntry): String {
     return if (date.isEmpty()) first else "$first • $date"
 }
 
-private fun uploadItem(ctx: Context, uri: Uri): UploadItem {
+internal fun uploadItem(ctx: Context, uri: Uri): UploadItem {
     val resolver = ctx.applicationContext.contentResolver
     var name: String? = null
     var size: Long? = null
