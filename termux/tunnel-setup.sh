@@ -8,24 +8,30 @@ DOMAIN="${1:-$DOMAIN}"
 if [ -z "$DOMAIN" ]; then echo "Usage: bash tunnel-setup.sh yourdomain.com"; exit 1; fi
 NAME=s21
 
-# Prints the id of the tunnel called $NAME, or nothing.
+# Prints the id of the tunnel called $NAME, or nothing. Tries the list first, then asks about the tunnel by name.
 tunnel_id() {
-  cloudflared tunnel list -o json 2>/dev/null | tr '{' '\n' | grep "\"name\": *\"$NAME\"" | grep -o '"id": *"[^"]*"' | head -1 | cut -d'"' -f4
+  local id
+  id=$(cloudflared tunnel list -o json 2>/dev/null | tr '{' '
+' | grep "\"name\": *\"$NAME\"" | grep -o '"id": *"[^"]*"' | head -1 | cut -d'"' -f4)
+  if [ -z "$id" ]; then
+    id=$(cloudflared tunnel info "$NAME" 2>/dev/null | grep -Eio '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+  fi
+  echo "$id"
 }
 
 cloudflared tunnel login            # opens a URL: authorize it for your domain in a browser
 
-# A tunnel with this name from an earlier setup can exist in Cloudflare while its key file is gone from this phone
-# (after a reinstall). Nothing can use it then, so replace it. A tunnel whose key is still here is left alone.
-OLD=$(tunnel_id)
-if [ -n "$OLD" ]; then
-  if [ -f "$HOME/.cloudflared/$OLD.json" ]; then
+# Make the tunnel. If the name is taken by a tunnel from an earlier setup whose key file is not on this phone
+# (after a reinstall), nothing can use it, so delete it and make a new one. If its key IS here, leave it alone.
+if ! cloudflared tunnel create "$NAME"; then
+  OLD=$(tunnel_id)
+  if [ -n "$OLD" ] && [ -f "$HOME/.cloudflared/$OLD.json" ]; then
     echo "Tunnel $NAME already exists with its key on this phone. Not touching it."; exit 1
   fi
   echo "Replacing the old $NAME tunnel (its key is not on this phone)"
   cloudflared tunnel delete -f "$NAME"
+  cloudflared tunnel create "$NAME"
 fi
-cloudflared tunnel create "$NAME"   # prints the tunnel ID and writes its credentials file
 
 ID=$(tunnel_id)
 mkdir -p ~/.cloudflared
