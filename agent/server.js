@@ -6,6 +6,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const files = require('./files');
 const sites = require('./sites');
+const tunnel = require('./tunnel');
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1'; // cloudflared connects locally
@@ -84,6 +85,7 @@ const routes = {
   'GET /status': status,
   ...files.routes,
   ...sites.routes,
+  ...tunnel.routes,
 };
 
 function send(res, code, body) {

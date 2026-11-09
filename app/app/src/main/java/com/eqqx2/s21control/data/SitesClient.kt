@@ -57,6 +57,23 @@ data class CheckResult(
     val error: String? = null,
 )
 
+/** One hostname routed by the Cloudflare tunnel. [kind] is "app", "sites" (this tool's wildcard) or "agent". */
+@Serializable
+data class TunnelRoute(
+    val hostname: String,
+    val service: String = "",
+    val port: Int? = null,
+    val kind: String = "app",
+    val up: Boolean? = null,
+)
+
+@Serializable
+data class TunnelListing(
+    val found: Boolean = false,
+    val error: String? = null,
+    val routes: List<TunnelRoute> = emptyList(),
+)
+
 sealed interface SitesResult<out T> {
     data class Ok<T>(val value: T) : SitesResult<T>
     data object Unauthorized : SitesResult<Nothing>
@@ -195,6 +212,12 @@ class SitesClient(http: OkHttpClient = OkHttpClient()) {
     suspend fun check(baseUrl: String, token: String, name: String): SitesResult<CheckResult> =
         run(slow, baseUrl, token, "sites/check", { addQueryParameter("name", name) }, { it }) { resp ->
             SitesResult.Ok(sitesJson.decodeFromString(CheckResult.serializer(), resp.body?.string().orEmpty()))
+        }
+
+    /** Read-only list of tunnel hostnames with a local up/down check. Older agents answer 404. */
+    suspend fun tunnel(baseUrl: String, token: String): SitesResult<TunnelListing> =
+        run(api, baseUrl, token, "tunnel/routes", {}, { it }) { resp ->
+            SitesResult.Ok(sitesJson.decodeFromString(TunnelListing.serializer(), resp.body?.string().orEmpty()))
         }
 
     private fun parseSite(resp: Response): SiteInfo =

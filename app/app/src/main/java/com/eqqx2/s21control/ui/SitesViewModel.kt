@@ -7,6 +7,8 @@ import com.eqqx2.s21control.data.SiteInfo
 import com.eqqx2.s21control.data.SitesClient
 import com.eqqx2.s21control.data.SitesResult
 import com.eqqx2.s21control.data.TokenStore
+import com.eqqx2.s21control.data.TunnelListing
+import com.eqqx2.s21control.data.TunnelRoute
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -40,6 +42,22 @@ fun siteChipText(enabled: Boolean, reach: SiteReach): String = when {
     reach is SiteReach.NotReady -> "Not reachable yet"
     else -> "Checking"
 }
+
+/** Tunnel hostnames hosted outside this tool: hides the agent's own API route and the sites wildcard. */
+fun externalRoutes(l: TunnelListing): List<TunnelRoute> =
+    l.routes.filter { it.kind == "app" && !it.hostname.startsWith("*.") }
+
+/** Text of a tunnel route's chip. Never colour-only. */
+fun tunnelChipText(up: Boolean?): String = when (up) {
+    true -> "Running"
+    false -> "Not running"
+    null -> "Not checked"
+}
+
+fun tunnelMeta(r: TunnelRoute): String = if (r.port != null) "Local port ${r.port}" else r.service
+
+/** Only http(s) services can be opened in a browser. */
+fun isWebRoute(r: TunnelRoute): Boolean = r.service.startsWith("http://") || r.service.startsWith("https://")
 
 /** Show the first-time setup card when enabled sites were checked, none is live, and one fails for a setup reason. */
 fun needsSetupHelp(sites: List<SiteInfo>, reach: Map<String, SiteReach>): Boolean {
@@ -104,6 +122,8 @@ data class SitesState(
     val message: String? = null,
     val creating: Boolean = false,
     val unauthorized: Boolean = false,
+    /** Other apps on the tunnel; null until loaded or when the agent is too old to report them. */
+    val tunnel: List<TunnelRoute>? = null,
 )
 
 class SitesViewModel(
@@ -116,6 +136,7 @@ class SitesViewModel(
     private var loadJob: Job? = null
     private var checkJob: Job? = null
     private var deployJob: Job? = null
+    private var tunnelJob: Job? = null
 
     /** Reloads the list (old rows stay visible), then checks every enabled site. */
     fun refresh() {
@@ -132,6 +153,7 @@ class SitesViewModel(
                         )
                     }
                     runChecks(r.value.sites)
+                    loadTunnel()
                 }
                 SitesResult.Unauthorized -> fail401()
                 else -> _state.update { it.copy(loading = false, error = sitesErrorText(r, "Could not load sites")) }
@@ -140,7 +162,24 @@ class SitesViewModel(
     }
 
     /** "Check again": re-runs reachability for the sites already listed. */
-    fun recheck() = runChecks(_state.value.sites)
+    fun recheck() {
+        runChecks(_state.value.sites)
+        loadTunnel()
+    }
+
+    /** Best effort: any failure (including an older agent without the route) leaves the section as it was. */
+    private fun loadTunnel() {
+        val token = store.token ?: return
+        tunnelJob?.cancel()
+        val base = store.baseUrl
+        tunnelJob = viewModelScope.launch {
+            when (val r = client.tunnel(base, token)) {
+                is SitesResult.Ok -> _state.update { it.copy(tunnel = externalRoutes(r.value)) }
+                SitesResult.Unauthorized -> fail401()
+                else -> Unit
+            }
+        }
+    }
 
     private fun runChecks(sites: List<SiteInfo>) {
         val token = store.token ?: return
@@ -249,6 +288,7 @@ class SitesViewModel(
         loadJob?.cancel()
         checkJob?.cancel()
         deployJob?.cancel()
+        tunnelJob?.cancel()
         _state.value = SitesState()
     }
 
@@ -261,5 +301,6 @@ class SitesViewModel(
         loadJob?.cancel()
         checkJob?.cancel()
         deployJob?.cancel()
+        tunnelJob?.cancel()
     }
 }

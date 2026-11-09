@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -81,12 +82,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eqqx2.s21control.data.SiteInfo
+import com.eqqx2.s21control.data.TunnelRoute
 import com.eqqx2.s21control.data.isReservedSiteName
 import com.eqqx2.s21control.data.isValidSiteName
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val SiteGradient = Brush.linearGradient(listOf(Color(0xFF0EA5E9), Color(0xFF6366F1)))
+private val OtherGradient = Brush.linearGradient(listOf(Color(0xFF475569), Color(0xFF1E293B)))
 private val SiteDialogFill = Color(0xFFF6D5D8)
 private val OfflineGrey = Color(0xFFD1D5DB)
 private val SheetBg = Color(0xFF2B1014)
@@ -241,6 +244,21 @@ fun SitesScreen(
                         onOpenBrowser = { openSite(ctx, site, domain) },
                         onDelete = { deleteName = site.name },
                     )
+                }
+                val others = state.tunnel.orEmpty()
+                if (others.isNotEmpty()) {
+                    item(key = "others-header") {
+                        Column(Modifier.padding(top = 12.dp)) {
+                            Text("Other apps on your tunnel", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Hosted outside this tool. Shown for status only.",
+                                color = S21Colors.OnCrimsonMuted, fontSize = 14.sp,
+                            )
+                        }
+                    }
+                    items(others, key = { "tunnel-" + it.hostname + "|" + it.service }) { route ->
+                        TunnelRow(route, reduce, onOpen = { openHost(ctx, route.hostname) })
+                    }
                 }
             }
         }
@@ -429,10 +447,79 @@ private fun ReachChip(enabled: Boolean, reach: SiteReach, reduce: Boolean) {
             "Not reachable yet" -> S21Colors.Amber
             else -> S21Colors.OnCrimsonMuted
         }
-        Box(
-            Modifier.clip(S21Shapes.Pill).background(S21Colors.Ink).padding(horizontal = 12.dp, vertical = 6.dp),
-        ) {
-            Text(t, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        StatusPill(t, color)
+    }
+}
+
+/** Dark pill with coloured words. The words carry the meaning; colour only reinforces it. */
+@Composable
+private fun StatusPill(text: String, color: Color) {
+    Box(Modifier.clip(S21Shapes.Pill).background(S21Colors.Ink).padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Text(text, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+private fun openHost(ctx: android.content.Context, host: String) {
+    try {
+        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://$host")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: ActivityNotFoundException) {
+    }
+}
+
+/** Read-only card for an app the tunnel routes but this tool does not host (gym, downloader, ...). */
+@Composable
+private fun TunnelRow(route: TunnelRoute, reduce: Boolean, onOpen: () -> Unit) {
+    val text = tunnelChipText(route.up)
+    val web = isWebRoute(route)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(S21Shapes.Stat)
+            .background(S21Colors.GlassFill)
+            .border(1.dp, S21Colors.GlassBorder, S21Shapes.Stat)
+            .padding(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(48.dp).clip(S21Shapes.Tile).background(OtherGradient),
+                contentAlignment = Alignment.Center,
+            ) {
+                GlassIcon(S21Icons.Sites, null, Color.White, 24.dp)
+            }
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f)) {
+                if (web) {
+                    Box(
+                        Modifier
+                            .heightIn(min = 48.dp)
+                            .clickable(onClickLabel = "Open ${route.hostname} in browser", role = Role.Button, onClick = onOpen),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        Text(
+                            route.hostname, color = S21Colors.OnGlass, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                            textDecoration = TextDecoration.Underline, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                } else {
+                    Text(
+                        route.hostname, color = S21Colors.OnGlass, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(tunnelMeta(route), color = S21Colors.OnGlassMuted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Row(Modifier.padding(top = 8.dp)) {
+            Crossfade(targetState = text, animationSpec = if (reduce) snap() else tween(200), label = "tunnelChip") { t ->
+                StatusPill(
+                    t,
+                    when (t) {
+                        "Running" -> S21Colors.Emerald
+                        "Not running" -> S21Colors.Amber
+                        else -> S21Colors.OnCrimsonMuted
+                    },
+                )
+            }
         }
     }
 }
