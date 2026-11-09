@@ -8,8 +8,16 @@ DOMAIN="${1:-$DOMAIN}"
 REPO="${REPO:-https://github.com/EQQX0/EqDashboard.git}"
 DIR="$HOME/s21-server"
 
+echo "==> Updating Termux first (a half-updated Termux breaks git)"
+export DEBIAN_FRONTEND=noninteractive
+pkg update -y
+pkg upgrade -y -o Dpkg::Options::=--force-confnew
 echo "==> Installing git"
 pkg install -y git curl
+
+if [ "$DOMAIN" = "yourdomain.com" ]; then
+  echo "Replace yourdomain.com with your real domain (or leave it off), then run it again."; exit 1
+fi
 
 echo "==> Getting the code"
 if [ -d "$DIR/.git" ]; then
