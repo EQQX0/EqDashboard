@@ -54,6 +54,13 @@ fun memoryHint(pct: Double?, fallback: String): String = when {
 fun storageTrend(usedPercent: Double): Trend =
     Trend(Dir.Flat, if (usedPercent > 90.0) Tone.Warn else Tone.Neutral)
 
+/**
+ * "Discharging 23.0°C". The number and unit are one word, so a narrow card can only break
+ * between the state and the temperature, never leave a lone "C" on its own line.
+ */
+fun batteryHint(charging: Boolean, tempC: Double): String =
+    (if (charging) "Charging " else "Discharging ") + java.lang.String.format(java.util.Locale.US, "%.1f°C", tempC)
+
 /** Battery: charging is good, discharging below 20% is amber, otherwise neutral. */
 fun batteryTrend(percentage: Int, charging: Boolean): Trend = when {
     charging -> Trend(Dir.Up, Tone.Good)

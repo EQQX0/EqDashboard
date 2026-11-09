@@ -179,7 +179,7 @@ private fun StatCards(s: Status, prev: Status?, intro: Boolean) {
             val pctFmt = { v: Double -> "${v.toInt()}%" }
             StatsCard(
                 "Battery", rememberCountUp(b.percentage.toDouble(), intro, pctFmt),
-                (if (charging) "Charging" else "Discharging") + String.format(Locale.US, ", %.1f C", b.temperature),
+                batteryHint(charging, b.temperature),
                 S21Icons.Battery, AmberOrange, Modifier.weight(1f).fillMaxHeight().appear(4, intro),
                 trend = batteryTrend(b.percentage, charging), sizeBasis = pctFmt(b.percentage.toDouble()),
             )
