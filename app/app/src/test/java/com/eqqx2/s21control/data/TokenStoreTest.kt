@@ -44,6 +44,24 @@ class TokenStoreTest {
         assertEquals("https://x.example.com", store.baseUrl)
     }
 
+    @Test fun plainHttpServerAddressIsNeverStoredOrUsed() {
+        val prefs = FakePrefs()
+        val store = TokenStore({ prefs }, {})
+        store.baseUrl = "http://192.168.0.5:8787"
+        assertEquals(DEFAULT_BASE_URL, store.baseUrl)
+        assertEquals(false, prefs.map.containsKey(TokenStore.KEY_URL))
+        prefs.map[TokenStore.KEY_URL] = "http://evil.example.com" // a value that got into storage another way
+        assertEquals(DEFAULT_BASE_URL, store.baseUrl)
+    }
+
+    @Test fun httpsCheck() {
+        assertEquals(true, isHttpsUrl("https://api.eqqx2.com"))
+        assertEquals(true, isHttpsUrl("  HTTPS://x.y  "))
+        assertEquals(false, isHttpsUrl("http://x.y"))
+        assertEquals(false, isHttpsUrl("api.eqqx2.com"))
+        assertEquals(false, isHttpsUrl(""))
+    }
+
     @Test fun openFailureWipesAndActsLoggedOut() {
         var opens = 0
         var wipes = 0

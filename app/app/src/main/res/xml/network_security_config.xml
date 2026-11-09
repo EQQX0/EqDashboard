@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plain http is allowed only so the lights popup can show EqRGB on the home network (addresses change,
+     and this format cannot name an address range). The app itself refuses any server address that is not
+     https (see isHttpsUrl in TokenStore.kt), and the popup is locked to the one PC address. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

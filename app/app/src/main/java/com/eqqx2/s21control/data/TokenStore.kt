@@ -8,6 +8,12 @@ import androidx.security.crypto.MasterKey
 const val DEFAULT_BASE_URL = "https://api.eqqx2.com"
 
 /**
+ * The app may load plain http inside the lights popup (EqRGB on the home network), so the system no longer
+ * blocks cleartext for the whole app. This check keeps the token and every agent call on https.
+ */
+fun isHttpsUrl(s: String): Boolean = s.trim().startsWith("https://", ignoreCase = true)
+
+/**
  * Encrypted URL + token storage. If the encrypted prefs cannot be read (Keystore key invalidated,
  * corrupted file) the store is wiped and behaves as logged out instead of crashing.
  */
@@ -56,8 +62,9 @@ class TokenStore internal constructor(
     }
 
     var baseUrl: String
-        get() = guarded(DEFAULT_BASE_URL) { it.getString(KEY_URL, null) } ?: DEFAULT_BASE_URL
-        set(value) { guarded(Unit) { it.edit().putString(KEY_URL, value.trim()).apply() } }
+        get() = (guarded(DEFAULT_BASE_URL) { it.getString(KEY_URL, null) } ?: DEFAULT_BASE_URL)
+            .takeIf { isHttpsUrl(it) } ?: DEFAULT_BASE_URL
+        set(value) { if (isHttpsUrl(value)) guarded(Unit) { it.edit().putString(KEY_URL, value.trim()).apply() } }
 
     var token: String?
         get() = guarded<String?>(null) { it.getString(KEY_TOKEN, null) }

@@ -81,6 +81,7 @@ import com.eqqx2.s21control.data.DownloadsClient
 import com.eqqx2.s21control.data.VpsClient
 import com.eqqx2.s21control.data.AgentUpdateClient
 import com.eqqx2.s21control.data.PcClient
+import com.eqqx2.s21control.data.isHttpsUrl
 import com.eqqx2.s21control.data.FetchResult
 import com.eqqx2.s21control.data.FilesClient
 import com.eqqx2.s21control.data.SitesClient
@@ -234,6 +235,10 @@ fun S21App() {
         val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
         fun connect(url: String, token: String, picked: Uri?) {
+            if (!isHttpsUrl(url)) {
+                notice = "The server address must start with https://"; noticeTick++
+                return
+            }
             busy = true
             notice = null
             scope.launch {

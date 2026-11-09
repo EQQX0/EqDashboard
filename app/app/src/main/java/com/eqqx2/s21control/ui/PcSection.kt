@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -34,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
@@ -80,7 +77,9 @@ fun PcSection(vm: PcViewModel, modifier: Modifier = Modifier) {
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var setupId by rememberSaveable { mutableStateOf<String?>(null) }
     var lightsId by rememberSaveable { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
+    // Not saveable on purpose: the link holds a token and should not be written into saved state.
+    var popup by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val reduce = rememberReducedMotion()
     var offId by rememberSaveable { mutableStateOf<String?>(null) }
     var removeId by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -108,10 +107,7 @@ fun PcSection(vm: PcViewModel, modifier: Modifier = Modifier) {
                 onLights = {
                     if (item.hasLights) {
                         vm.openLights(item) { url, err ->
-                            if (url != null) {
-                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                                catch (e: Exception) { vm.showMessage("No browser app could open the lights link") }
-                            } else vm.showMessage(err ?: "Could not open the lights link")
+                            if (url != null) popup = item.name to url else vm.showMessage(err ?: "Could not open the lights link")
                         }
                     } else lightsId = item.id
                 },
@@ -138,6 +134,7 @@ fun PcSection(vm: PcViewModel, modifier: Modifier = Modifier) {
     if (showAdd) {
         AddPcDialog(saving = state.saving, onAdd = vm::add, onDismiss = { showAdd = false })
     }
+    popup?.let { (n, u) -> LightsPopup(n, u, reduce, onClose = { popup = null }) }
     lightsId?.let { id ->
         val item = state.items.firstOrNull { it.id == id }
         if (item == null) lightsId = null else LightsLinkDialog(item, vm, onDismiss = { lightsId = null })

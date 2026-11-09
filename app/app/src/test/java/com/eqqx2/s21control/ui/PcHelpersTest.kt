@@ -60,6 +60,20 @@ class PcHelpersTest {
         )) assertNotNull(bad, lightsLinkError(bad, ip))
     }
 
+    @Test fun popupOnlyLoadsTheSamePcAddressAndPort() {
+        val start = "http://192.168.0.174:47822/?t=abcdef123456"
+        assertTrue(lightsRequestAllowed(start, "http://192.168.0.174:47822/api/poll"))
+        assertTrue(lightsRequestAllowed(start, "http://192.168.0.174:47822/"))
+        assertFalse(lightsRequestAllowed(start, "http://192.168.0.174:8080/"))
+        assertFalse(lightsRequestAllowed(start, "http://192.168.0.175:47822/"))
+        assertFalse(lightsRequestAllowed(start, "https://192.168.0.174:47822/"))
+        assertFalse(lightsRequestAllowed(start, "https://evil.example.com/"))
+        assertFalse(lightsRequestAllowed(start, "intent://scan/#Intent;end"))
+        assertFalse(lightsRequestAllowed(start, "file:///data/data/x"))
+        assertFalse(lightsRequestAllowed(start, "not a url"))
+        assertFalse(lightsRequestAllowed("garbage", "http://192.168.0.174:47822/"))
+    }
+
     @Test fun lightsErrorTexts() {
         assertTrue(pcErrorText(PcResult.BadLink).contains("EqRGB"))
         assertTrue(pcErrorText(PcResult.NoLights).contains("No lights link"))
