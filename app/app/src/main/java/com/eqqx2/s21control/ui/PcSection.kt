@@ -76,7 +76,12 @@ fun PcSection(vm: PcViewModel, modifier: Modifier = Modifier) {
 
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var setupId by rememberSaveable { mutableStateOf<String?>(null) }
-    var lightsId by rememberSaveable { mutableStateOf<String?>(null) }
+    // A PC was just added: open its setup as soon as it shows up in the list.
+    var setupMac by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.items, setupMac) {
+        val mac = setupMac ?: return@LaunchedEffect
+        state.items.firstOrNull { it.mac == mac }?.let { setupId = it.id; setupMac = null }
+    }
     // Not saveable on purpose: the link holds a token and should not be written into saved state.
     var popup by remember { mutableStateOf<Pair<String, String>?>(null) }
     val reduce = rememberReducedMotion()
@@ -105,13 +110,10 @@ fun PcSection(vm: PcViewModel, modifier: Modifier = Modifier) {
                 onOff = { if (item.sshUser.isBlank()) setupId = item.id else offId = item.id },
                 onSetup = { setupId = item.id },
                 onLights = {
-                    if (item.hasLights) {
-                        vm.openLights(item) { url, err ->
-                            if (url != null) popup = item.name to url else vm.showMessage(err ?: "Could not open the lights link")
-                        }
-                    } else lightsId = item.id
+                    vm.openLights(item) { url, err ->
+                        if (url != null) popup = item.name to url else vm.showMessage(err ?: "Could not open the lights")
+                    }
                 },
-                onLightsLink = { lightsId = item.id },
                 onRemove = { removeId = item.id },
             )
         }
@@ -132,13 +134,13 @@ fun PcSection(vm: PcViewModel, modifier: Modifier = Modifier) {
     }
 
     if (showAdd) {
-        AddPcDialog(saving = state.saving, onAdd = vm::add, onDismiss = { showAdd = false })
+        AddPcDialog(
+            saving = state.saving,
+            onAdd = { n, m, i, u, cb -> vm.add(n, m, i, u) { err -> if (err == null) setupMac = normalizeMacInput(m); cb(err) } },
+            onDismiss = { showAdd = false },
+        )
     }
     popup?.let { (n, u) -> LightsPopup(n, u, reduce, onClose = { popup = null }) }
-    lightsId?.let { id ->
-        val item = state.items.firstOrNull { it.id == id }
-        if (item == null) lightsId = null else LightsLinkDialog(item, vm, onDismiss = { lightsId = null })
-    }
     setupId?.let { id ->
         val item = state.items.firstOrNull { it.id == id }
         if (item == null) setupId = null else SetupDialog(item, vm, onDismiss = { setupId = null })
@@ -193,9 +195,9 @@ private fun PcRow(
     onOff: () -> Unit,
     onSetup: () -> Unit,
     onLights: () -> Unit,
-    onLightsLink: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    val setUp = item.sshUser.isNotBlank() && item.hasLights
     GlassCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -209,6 +211,10 @@ private fun PcRow(
             if (canWake) PrimaryPillButton("Turn on", modifier = Modifier.fillMaxWidth(), onClick = onWake)
             if (canOff) OutlinePill("Turn off", Modifier.fillMaxWidth(), onOff)
             if (item.hasLights && chip == "On") OutlinePill("Lights", Modifier.fillMaxWidth(), onLights)
+            if (!setUp) {
+                // Shown only until shutdown and lights are both saved.
+                OutlinePill(if (item.sshUser.isBlank() && !item.hasLights) "Set up" else "Finish setup", Modifier.fillMaxWidth(), onSetup)
+            }
             if (!canWake && !canOff) {
                 Text(
                     if (chip == "Starting") "Waiting for Windows to start" else "Shutting down",
@@ -217,10 +223,9 @@ private fun PcRow(
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextAction(if (item.sshUser.isBlank()) "Set up shutdown" else "Shutdown setup", onSetup, Modifier.weight(1f))
-                TextAction(if (item.hasLights) "Lights link" else "Add lights", onLightsLink, Modifier.weight(1f))
+                if (setUp) TextAction("Edit setup", onSetup, Modifier.weight(1f))
+                TextAction("Remove", onRemove, Modifier.weight(1f), critical = true)
             }
-            TextAction("Remove", onRemove, Modifier.fillMaxWidth(), critical = true)
         }
     }
 }
@@ -289,74 +294,70 @@ private fun AddPcDialog(saving: Boolean, onAdd: (String, String, String, String,
     )
 }
 
-/** Lets the S21 shut this PC down. Windows only: the PC gets an SSH server whose key can run `shutdown` and nothing else. */
+/**
+ * One setup for everything the S21 does with this PC: shutdown (a Windows user and one PowerShell command) and
+ * lights (the EqRGB phone link). Each part is optional, so the PC can be set up in one go or in two visits.
+ * Turning on needs none of it.
+ */
 @Composable
 private fun SetupDialog(item: PcItem, vm: PcViewModel, onDismiss: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
     var user by rememberSaveable { mutableStateOf(item.sshUser) }
+    // Not saveable on purpose: the link holds a token and should not be written into saved state.
+    var link by remember { mutableStateOf("") }
     var key by remember { mutableStateOf<String?>(null) }
+    var keyError by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var saved by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { vm.fetchKey { k, e -> key = k; error = e } }
+    var saving by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { vm.fetchKey { k, e -> key = k; keyError = e } }
     val userError = userInputError(user)
+    val linkError = lightsLinkError(link, item.ip)
+    val userChanged = user.isNotEmpty() && user != item.sshUser
+    val canSave = !saving && userError == null && linkError == null && (userChanged || link.isNotBlank())
+
+    fun save() {
+        saving = true
+        error = null
+        fun saveLights() {
+            if (link.isBlank()) { onDismiss(); return }
+            vm.setLights(item, link) { err -> saving = false; if (err == null) onDismiss() else error = err }
+        }
+        if (userChanged) vm.setSshUser(item, user) { err -> if (err == null) saveLights() else { saving = false; error = err } }
+        else saveLights()
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFFF6D5D8),
         titleContentColor = S21Colors.OnGlass,
         textContentColor = S21Colors.OnGlassMuted,
-        title = { Text("Set up shutdown for ${item.name}") },
+        title = { Text("Set up ${item.name}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Turning on works without this. To turn the PC off, the S21 signs in to Windows and runs shutdown. Do these once:", fontSize = 14.sp)
-                Text("1. Your Windows user name (it must be an administrator)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = S21Colors.OnGlass)
+                Text("Turning on already works. This adds turning off and the lights. Fill in what you want, then Save. You can come back for the rest.", fontSize = 14.sp)
+
+                Text("Turn off", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = S21Colors.OnGlass)
                 OutlinedTextField(
-                    value = user, onValueChange = { user = it.trim(); saved = false; error = null }, singleLine = true,
-                    label = { Text("Windows user", fontSize = 14.sp) }, isError = userError != null,
-                    supportingText = { if (userError != null) Text(userError, fontSize = 14.sp) },
+                    value = user, onValueChange = { user = it.trim(); error = null }, singleLine = true,
+                    label = { Text("Windows user (an administrator)", fontSize = 14.sp) }, isError = userError != null,
+                    supportingText = { Text(userError ?: if (item.sshUser.isNotBlank()) "Saved" else "The name you sign in to Windows with", fontSize = 14.sp) },
                     textStyle = TextStyle(fontSize = 16.sp), colors = fieldColors(), modifier = Modifier.fillMaxWidth(),
                 )
-                Text("2. On the PC, open PowerShell as administrator and paste this. It installs OpenSSH and lets the S21 shut the PC down, nothing else.", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = S21Colors.OnGlass)
+                Text("On the PC, open PowerShell as administrator and paste this once. It installs OpenSSH and lets the S21 shut the PC down, nothing else.", fontSize = 14.sp)
                 val k = key
                 if (k != null) CommandBlock(pcSetupCommand(k), "Copy PowerShell command")
-                else Text(error ?: "Getting the S21's key", fontSize = 14.sp, color = if (error != null) S21Colors.OnGlassCritical else S21Colors.OnGlassMuted)
-                if (saved) Text("Saved. You can turn this PC off from Overview now.", fontSize = 14.sp, color = S21Colors.OnGlass, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = user.isNotEmpty() && userError == null,
-                onClick = { vm.setSshUser(item, user) { err -> if (err == null) saved = true else error = err } },
-            ) {
-                Text("Save user", color = S21Colors.OnGlass, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close", color = S21Colors.OnGlass, fontSize = 16.sp) } },
-    )
-}
+                else Text(keyError ?: "Getting the S21's key", fontSize = 14.sp, color = if (keyError != null) S21Colors.OnGlassCritical else S21Colors.OnGlassMuted)
 
-/** Saves the EqRGB phone-remote link so the PC card can open the lights controls. */
-@Composable
-private fun LightsLinkDialog(item: PcItem, vm: PcViewModel, onDismiss: () -> Unit) {
-    val clipboard = LocalClipboardManager.current
-    var link by rememberSaveable { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    val linkError = lightsLinkError(link, item.ip)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFFF6D5D8),
-        titleContentColor = S21Colors.OnGlass,
-        textContentColor = S21Colors.OnGlassMuted,
-        title = { Text("Lights for ${item.name}") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Lights", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = S21Colors.OnGlass)
                 Text(
-                    "In EqRGB on the PC, turn on the phone remote and copy its link. Paste it here. The Lights button then opens EqRGB's controls. It works on your home Wi-Fi while the PC is on and EqRGB is running.",
+                    "In EqRGB on the PC, turn on the phone remote and copy its link. The Lights button then works from any network, through the S21, while the PC is on and EqRGB is running.",
                     fontSize = 14.sp,
                 )
-                if (item.hasLights) Text("A link is saved. Paste a new one to replace it, or remove it below.", fontSize = 14.sp, color = S21Colors.OnGlass)
+                if (item.hasLights) Text("A link is saved. Paste a new one to replace it.", fontSize = 14.sp, color = S21Colors.OnGlass)
                 OutlinedTextField(
                     value = link, onValueChange = { link = it; error = null }, minLines = 2, maxLines = 4,
-                    label = { Text("EqRGB phone link", fontSize = 14.sp) }, isError = linkError != null || error != null,
-                    supportingText = { Text(error ?: linkError ?: "Treat this link like a password: anyone with it controls the lights.", fontSize = 14.sp) },
+                    label = { Text("EqRGB phone link", fontSize = 14.sp) }, isError = linkError != null,
+                    supportingText = { Text(linkError ?: "Treat this link like a password: anyone with it controls the lights.", fontSize = 14.sp) },
                     textStyle = TextStyle(fontSize = 14.sp), colors = fieldColors(), modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinePill("Paste", Modifier.fillMaxWidth()) {
@@ -365,14 +366,14 @@ private fun LightsLinkDialog(item: PcItem, vm: PcViewModel, onDismiss: () -> Uni
                 if (item.hasLights) {
                     TextAction("Remove saved link", { vm.setLights(item, "") { err -> if (err == null) onDismiss() else error = err } }, Modifier.fillMaxWidth(), critical = true)
                 }
+                error?.let { Text(it, color = S21Colors.OnGlassCritical, fontSize = 14.sp, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
             }
         },
         confirmButton = {
-            TextButton(
-                enabled = link.isNotBlank() && linkError == null,
-                onClick = { vm.setLights(item, link) { err -> if (err == null) onDismiss() else error = err } },
-            ) { Text("Save", color = S21Colors.OnGlass, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+            TextButton(enabled = canSave, onClick = ::save) {
+                Text(if (saving) "Saving" else "Save", color = if (canSave) S21Colors.OnGlass else S21Colors.OnGlassMuted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = S21Colors.OnGlass, fontSize = 16.sp) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close", color = S21Colors.OnGlass, fontSize = 16.sp) } },
     )
 }
