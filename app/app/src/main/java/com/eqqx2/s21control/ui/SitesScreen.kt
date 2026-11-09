@@ -453,7 +453,7 @@ private fun ReachChip(enabled: Boolean, reach: SiteReach, reduce: Boolean) {
 
 /** Dark pill with coloured words. The words carry the meaning; colour only reinforces it. */
 @Composable
-private fun StatusPill(text: String, color: Color) {
+internal fun StatusPill(text: String, color: Color) {
     Box(Modifier.clip(S21Shapes.Pill).background(S21Colors.Ink).padding(horizontal = 12.dp, vertical = 6.dp)) {
         Text(text, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
@@ -525,7 +525,7 @@ private fun TunnelRow(route: TunnelRoute, reduce: Boolean, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun SecondaryPillButton(text: String, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun SecondaryPillButton(text: String, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
         modifier
             .heightIn(min = 48.dp)

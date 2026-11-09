@@ -2,7 +2,7 @@
 # Run once inside Termux on the S21.
 set -e
 pkg update -y
-pkg install -y nodejs termux-api termux-services cloudflared aria2 python caddy proot-distro openssh
+pkg install -y nodejs termux-api termux-services cloudflared aria2 ffmpeg python caddy proot-distro openssh
 pip install yt-dlp
 
 # Agent location

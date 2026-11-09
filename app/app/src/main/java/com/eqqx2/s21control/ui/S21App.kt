@@ -77,6 +77,7 @@ import com.eqqx2.s21control.data.UpdateClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.eqqx2.s21control.data.AgentClient
+import com.eqqx2.s21control.data.DownloadsClient
 import com.eqqx2.s21control.data.FetchResult
 import com.eqqx2.s21control.data.FilesClient
 import com.eqqx2.s21control.data.SitesClient
@@ -111,6 +112,10 @@ fun S21App() {
         val sitesVm: SitesViewModel = viewModel(factory = viewModelFactory {
             initializer { SitesViewModel(sitesClient, store) }
         })
+        val downloadsClient = remember { DownloadsClient() }
+        val downloadsVm: DownloadsViewModel = viewModel(factory = viewModelFactory {
+            initializer { DownloadsViewModel(downloadsClient, store) }
+        })
         val updateVm: UpdateViewModel = viewModel(factory = viewModelFactory {
             initializer {
                 UpdateViewModel(
@@ -136,7 +141,9 @@ fun S21App() {
         val reduce = rememberReducedMotion()
         var busy by remember { mutableStateOf(false) }
 
-        LaunchedEffect(loggedIn) { if (loggedIn) updateVm.backgroundCheck() }
+        LaunchedEffect(loggedIn) {
+            if (loggedIn) updateVm.backgroundCheck() else downloadsVm.reset()
+        }
         val state by vm.state.collectAsState()
         LaunchedEffect(state.unauthorized) {
             if (state.unauthorized) {
@@ -161,6 +168,18 @@ fun S21App() {
             if (sitesState.unauthorized) {
                 loggedIn = false
                 notice = "Token rejected"; noticeTick++
+                sitesVm.reset()
+                filesVm.reset()
+                vm.reset()
+            }
+        }
+
+        val downloadsState by downloadsVm.state.collectAsState()
+        LaunchedEffect(downloadsState.unauthorized) {
+            if (downloadsState.unauthorized) {
+                loggedIn = false
+                notice = "Token rejected"; noticeTick++
+                downloadsVm.reset()
                 sitesVm.reset()
                 filesVm.reset()
                 vm.reset()
@@ -228,6 +247,7 @@ fun S21App() {
                 vm = vm,
                 filesVm = filesVm,
                 sitesVm = sitesVm,
+                downloadsVm = downloadsVm,
                 updateVm = updateVm,
             )
         }
@@ -262,6 +282,7 @@ private fun Shell(
     vm: StatusViewModel,
     filesVm: FilesViewModel,
     sitesVm: SitesViewModel,
+    downloadsVm: DownloadsViewModel,
     updateVm: UpdateViewModel,
 ) {
     val updateState by updateVm.state.collectAsState()
@@ -299,6 +320,11 @@ private fun Shell(
                         updateInfo = updateState.available, onUpdateClick = { showSheet = true },
                     )
                     1 -> FilesScreen(filesVm, topInset, navClearance + 8.dp, Modifier.fillMaxSize())
+                    2 -> DownloadsScreen(
+                        downloadsVm, topInset, navClearance + 8.dp,
+                        onOpenFiles = { path -> filesVm.openPath(path); tab = 1 },
+                        modifier = Modifier.fillMaxSize(),
+                    )
                     3 -> SitesScreen(
                         sitesVm, topInset, navClearance + 8.dp,
                         onOpenFiles = { path -> filesVm.openPath(path); tab = 1 },
