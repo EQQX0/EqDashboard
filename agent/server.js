@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const files = require('./files');
+const sites = require('./sites');
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1'; // cloudflared connects locally
@@ -62,6 +63,7 @@ async function status() {
 const routes = {
   'GET /status': status,
   ...files.routes,
+  ...sites.routes,
 };
 
 function send(res, code, body) {
@@ -97,4 +99,5 @@ const server = http.createServer(async (req, res) => {
 
 server.requestTimeout = 0; // large uploads may take longer than the 5 min default
 files.init();
+try { sites.start(); } catch (e) { console.error('sites failed to start:', e && (e.code || e.message)); }
 server.listen(PORT, HOST, () => console.log(`agent listening on ${HOST}:${PORT}`));

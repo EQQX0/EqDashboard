@@ -162,6 +162,11 @@ function rfc5987(name) {
   return encodeURIComponent(name).replace(/['()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
 }
 
+// True for the 'sites' folder itself and for 'sites/<name>' (managed by sites.js metadata).
+function isSiteEntry(segs) {
+  return segs[0] === 'sites' && segs.length <= 2;
+}
+
 // Parses a single Range header. Returns null (ignore), 'unsat', or {start,end}.
 function parseRange(header, size) {
   const m = /^bytes=(\d*)-(\d*)$/i.exec(String(header).trim());
@@ -385,6 +390,7 @@ function createRoutes({ root, maxUploadBytes }) {
     const from = rp(body.from);
     const to = rp(body.to);
     if (from.segs.length === 0 || to.segs.length === 0) throw E('bad_path');
+    if (isSiteEntry(from.segs)) throw E('bad_path'); // sites are managed via /sites/*
     validName(to.segs[to.segs.length - 1], to.segs.length === 1);
     if (!(await statOrNull(from.abs))) throw E('not_found');
     if (to.rel === from.rel || to.rel.startsWith(from.rel + '/')) {
@@ -401,6 +407,7 @@ function createRoutes({ root, maxUploadBytes }) {
   const remove = wrap(async (req, res, url) => {
     const { segs, abs } = rp(url.searchParams.get('path') || '');
     if (segs.length === 0) throw E('bad_path');
+    if (isSiteEntry(segs)) throw E('bad_path'); // sites are managed via /sites/*
     if (!(await statOrNull(abs))) throw E('not_found');
     const trash = path.join(ROOT, '.trash');
     await fsp.mkdir(trash, { recursive: true });
@@ -437,6 +444,7 @@ module.exports = {
   createRoutes,
   resolveSafe,
   validName,
+  parseRange,
   init,
   FILES_ROOT,
   MAX_UPLOAD_BYTES,

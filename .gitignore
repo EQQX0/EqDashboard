@@ -19,3 +19,5 @@ app/keystore.properties
 *.jks
 *.keystore
 scripts/out/
+
+agent/data/
