@@ -6,6 +6,8 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 const http = require('http');
+const net = require('net');
+const dns = require('dns');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const files = require('./files');
@@ -48,6 +50,7 @@ function isBlockedHost(host) {
   const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
   if (v4) {
     const a = Number(v4[1]); const b = Number(v4[2]);
+    // Home-network addresses stay allowed on purpose (downloading from a NAS or router share is a normal use).
     return a === 127 || a === 0 || (a === 169 && b === 254);
   }
   if (h.includes(':')) {
@@ -131,6 +134,7 @@ function createDownloads(opts = {}) {
   const ALLOW_PRIVATE = !!opts.allowPrivate || env.DL_ALLOW_PRIVATE === '1';
   const MIN_FREE = Number(opts.minFree !== undefined ? opts.minFree : (env.DL_MIN_FREE_BYTES || 524288000));
   const MAX_YT = Number(opts.maxYtdlp || 2);
+  const LOOKUP = opts.lookup || ((h) => dns.promises.lookup(h, { all: true }));
 
   let secret = opts.aria2Secret !== undefined ? opts.aria2Secret : (env.ARIA2_RPC_SECRET || '');
   let meta = { aria2: {}, ytdlp: {} }; // aria2: gid -> { url, createdAt }; ytdlp: id -> job record
@@ -375,7 +379,11 @@ function createDownloads(opts = {}) {
       job.etaSec = null;
       if (code === 0) {
         try {
-          const out = finalTmp || await onlyFileIn(path.join(PARTIAL, job.id, 'out'));
+          // Only trust the printed path if it is inside this job's own output folder (a page title can print fake lines).
+          const outDir = path.join(PARTIAL, job.id, 'out');
+          const inside = finalTmp ? path.relative(outDir, finalTmp) : '';
+          const printed = finalTmp && inside && !inside.startsWith('..') && !path.isAbsolute(inside) ? finalTmp : null;
+          const out = printed || await onlyFileIn(outDir);
           if (!out) throw new Error('no output file');
           const dest = await moveIntoDownloads(out);
           job.path = rel(dest);
@@ -498,8 +506,19 @@ function createDownloads(opts = {}) {
     return { dir: 'downloads', engines: { aria2: ariaOk, ytdlp: ytOk === true }, freeBytes: await freeBytes(), items: items.slice(0, LIST_CAP) };
   }
 
+  // A public-looking name can still point at this phone or the home network; refuse it when it resolves there.
+  async function checkResolved(url) {
+    if (ALLOW_PRIVATE) return;
+    const host = new URL(url).hostname.replace(/^\[|\]$/g, '');
+    if (net.isIP(host)) return; // literal addresses were checked by parseSource
+    let addrs;
+    try { addrs = await LOOKUP(host); } catch { return; } // cannot resolve: the engine will fail on its own
+    if (addrs.some((a) => isBlockedHost(a.address))) throw new ApiError(400, 'blocked_url');
+  }
+
   async function add(body) {
     const src = parseSource(body.url, ALLOW_PRIVATE);
+    if (src.kind === 'http') await checkResolved(src.url);
     const mode = body.mode === undefined ? 'auto' : body.mode;
     if (!MODES.has(mode)) throw new ApiError(400, 'bad_mode');
     const engine = chooseEngine(src, mode);

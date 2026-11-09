@@ -7,25 +7,30 @@ const { findPairFile } = require('./pairscan');
 
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
 
+// The decrypted settings stay in memory; the file is read once and again only after writeCfg.
+let cfgMemo = null;
+
 function readCfg() {
+  if (cfgMemo) return cfgMemo;
   try {
     const c = JSON.parse(fs.readFileSync(cfgFile(), 'utf8'));
     let token = '';
     if (c.token) {
       try { token = safeStorage.decryptString(Buffer.from(c.token, 'base64')); } catch { token = ''; }
     }
-    return { baseUrl: c.baseUrl || '', token };
-  } catch { return { baseUrl: '', token: '' }; }
+    cfgMemo = { baseUrl: c.baseUrl || '', token };
+  } catch { cfgMemo = { baseUrl: '', token: '' }; }
+  return cfgMemo;
 }
 
 function writeCfg(baseUrl, token) {
   const enc = token ? safeStorage.encryptString(token).toString('base64') : '';
   fs.mkdirSync(path.dirname(cfgFile()), { recursive: true });
   fs.writeFileSync(cfgFile(), JSON.stringify({ baseUrl, token: enc }));
+  cfgMemo = { baseUrl, token: token || '' };
 }
 
-let cache = readCfg;
-const api = createApi({ getConfig: () => cache() });
+const api = createApi({ getConfig: () => readCfg() });
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -57,8 +62,12 @@ app.whenReady().then(() => {
   });
   const searchDirs = () => ['downloads', 'desktop', 'documents'].map((n) => app.getPath(n));
   // Only reports that a pairing file exists (never the token), so the screen can offer it as a choice.
+  // The screen asks every few seconds; scanning three folders each time would stall the window, so reuse a recent answer.
+  let scanAt = 0;
+  let scanHit = null;
   ipcMain.handle('cfg:find', () => {
-    const hit = findPairFile(searchDirs());
+    if (Date.now() - scanAt > 5000) { scanHit = findPairFile(searchDirs()); scanAt = Date.now(); }
+    const hit = scanHit;
     if (!hit) return { found: false };
     return { found: true, name: path.basename(hit.file), folder: path.basename(path.dirname(hit.file)), host: new URL(hit.url).host };
   });

@@ -377,6 +377,7 @@ function createSites(opts = {}) {
     let bytes = 0;
     let newest = 0;
     const stack = [dir];
+    const pending = [];
     while (stack.length && count < WALK_CAP) {
       const d = stack.pop();
       let ents;
@@ -385,22 +386,34 @@ function createSites(opts = {}) {
         if (++count > WALK_CAP) break;
         const p = path.join(d, ent.name);
         if (ent.isDirectory()) stack.push(p);
-        else if (ent.isFile()) {
-          try {
-            const s = await fsp.stat(p);
-            nFiles++;
-            bytes += s.size;
-            if (s.mtimeMs > newest) newest = s.mtimeMs;
-          } catch { /* vanished */ }
-        }
+        else if (ent.isFile()) pending.push(p);
+      }
+      // Stat this folder's files together instead of one after another.
+      const stats = await Promise.all(pending.splice(0).map((f) => fsp.stat(f).catch(() => null)));
+      for (const s of stats) {
+        if (!s) continue; // vanished
+        nFiles++;
+        bytes += s.size;
+        if (s.mtimeMs > newest) newest = s.mtimeMs;
       }
     }
     return { files: nFiles, bytes, modified: newest ? new Date(newest).toISOString() : null };
   }
 
+  // Counting files walks the whole site, so keep the answer for a short while (and drop it when a site changes).
+  const walkCache = new Map();
+  const WALK_TTL = Number(opts.walkTtlMs !== undefined ? opts.walkTtlMs : (process.env.SITES_WALK_TTL_MS || 10000));
+  async function cachedWalk(name) {
+    const hit = walkCache.get(name);
+    if (hit && Date.now() - hit.at < WALK_TTL) return hit.v;
+    const v = await walk(siteDir(name));
+    walkCache.set(name, { at: Date.now(), v });
+    return v;
+  }
+
   async function view(name) {
     const m = state.sites[name];
-    const w = await walk(siteDir(name));
+    const w = await cachedWalk(name);
     return {
       name, hostname: `${name}.${DOMAIN}`, enabled: m.enabled, spa: m.spa,
       files: w.files, bytes: w.bytes, modified: w.modified, createdAt: m.createdAt,
@@ -449,6 +462,7 @@ function createSites(opts = {}) {
 `;
     await fsp.writeFile(path.join(dir, 'index.html'), page);
     state.sites[name] = { enabled: true, spa, createdAt: new Date().toISOString() };
+    walkCache.delete(name);
     save();
     sendJson(res, 200, { ok: true, site: await view(name) });
   });
@@ -476,6 +490,7 @@ function createSites(opts = {}) {
         await fsp.rename(dir, await uniqueTrash(`${Date.now()}-site-${name}`));
       } catch (e) { if (e.code !== 'ENOENT') throw e; }
       delete state.sites[name];
+      walkCache.delete(name);
       save();
     } finally { busy.delete(name); }
     sendJson(res, 200, { ok: true });
@@ -549,6 +564,7 @@ function createSites(opts = {}) {
       await fsp.rm(zipPath, { force: true }).catch(() => {});
       await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
       await fsp.rm(stage, { recursive: true, force: true }).catch(() => {});
+      walkCache.delete(name);
       busy.delete(name);
     }
     sendJson(res, 200, { ok: true, files: result.files, bytes: result.bytes });

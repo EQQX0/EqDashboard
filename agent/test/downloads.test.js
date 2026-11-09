@@ -73,7 +73,7 @@ async function fakeAria(secret = SECRET) {
 
 function make(extra = {}) {
   const root = fresh('root');
-  const dl = createDownloads({
+  const dl = createDownloads({ lookup: async () => [{ address: '93.184.216.34' }],
     filesRoot: path.join(root, 'files'), dataDir: path.join(root, 'data'), minFree: 0,
     spawnAria2: false, aria2Secret: SECRET, ytdlpCmd: [process.execPath, FAKE_YT], ...extra,
   });
@@ -312,7 +312,7 @@ test('yt-dlp: a missing binary gives engine_missing', async () => {
 test('restart: unfinished yt-dlp jobs come back paused, aria2 links are remembered', async () => {
   const a = await fakeAria();
   const root = fresh('persist');
-  const opts = { filesRoot: path.join(root, 'files'), dataDir: path.join(root, 'data'), minFree: 0, spawnAria2: false, aria2Secret: SECRET, aria2Url: a.url, ytdlpCmd: [process.execPath, FAKE_YT] };
+  const opts = { lookup: async () => [{ address: '93.184.216.34' }], filesRoot: path.join(root, 'files'), dataDir: path.join(root, 'data'), minFree: 0, spawnAria2: false, aria2Secret: SECRET, aria2Url: a.url, ytdlpCmd: [process.execPath, FAKE_YT] };
   const one = createDownloads(opts);
   one.init();
   const y = await one.add({ url: 'https://v.example.com/slow1' });

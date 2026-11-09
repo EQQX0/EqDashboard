@@ -34,7 +34,7 @@ async function boot(name, extraEnv = {}) {
   const child = spawn(process.execPath, [SERVER], {
     env: {
       ...process.env, PORT: String(port), HOST: '127.0.0.1', AGENT_TOKEN: TOKEN, FILES_ROOT: filesRoot,
-      TOKEN_FILE: path.join(tmp, name + '.token'), SITES_PORT: String(sitesPort), SITES_DOMAIN: DOMAIN,
+      TOKEN_FILE: path.join(tmp, name + '.token'), SITES_PORT: String(sitesPort), SITES_DOMAIN: DOMAIN, SITES_WALK_TTL_MS: '0',
       DATA_DIR: dataDir, ...extraEnv,
     },
     stdio: ['ignore', 'pipe', 'inherit'],

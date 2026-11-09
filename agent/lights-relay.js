@@ -64,6 +64,8 @@ function createRelay(opts) {
     const prefix = `${PREFIX}${m[1]}`;
     if (m[2] === undefined) { res.writeHead(301, { Location: `${prefix}/`, 'Cache-Control': 'no-store' }); res.end(); return true; }
     const rest = m[2];
+    // The path goes to the PC as written, so encoded slashes or dots must not slip past the allowlist below.
+    if (/%(2e|2f|5c)|\\|\.\./i.test(rest)) { send(res, 404, { error: 'not_found' }); req.resume(); return true; }
 
     const isPost = req.method === 'POST';
     const allowed = isPost

@@ -84,7 +84,9 @@ if [ -n "$DOMAIN" ]; then
       echo " - Phone app: tap 'Import token file' on the sign-in screen and pick it ($WHERE)."
       echo " - Windows app: put the file in Downloads or Desktop and the app signs in by itself."
       echo " - Send it to another device: termux-share $PAIR"
-      echo " - It holds your token. Delete it when done: rm $PAIR"
+      echo " - It holds your token, and other apps can read your Downloads folder, so it deletes itself in 30 minutes."
+      echo "   Delete it sooner with: rm $PAIR   (make a new one any time with: cd ~/samsung-server/agent && node pair.js --url https://api.$DOMAIN --out $PAIR --force)"
+      nohup sh -c "sleep 1800; rm -f '$PAIR'" >/dev/null 2>&1 &
     fi
   fi
 fi

@@ -30,13 +30,26 @@ const TOKEN = loadToken();
 const hits = new Map();
 const fails = new Map();
 const relayHits = new Map();
+const WINDOW_MS = 60000;
+// The timestamps of this IP's hits in the last minute (oldest dropped); undefined if it has none.
+function window(map, ip, now = Date.now()) {
+  const arr = map.get(ip);
+  if (arr) while (arr.length && now - arr[0] >= WINDOW_MS) arr.shift();
+  return arr;
+}
 function bump(map, ip, limit) {
   const now = Date.now();
-  const arr = (map.get(ip) || []).filter((t) => now - t < 60000);
+  let arr = window(map, ip, now);
+  if (!arr) { arr = []; map.set(ip, arr); }
   arr.push(now);
-  map.set(ip, arr);
   return arr.length > limit;
 }
+// How many hits this IP has in the last minute, without counting a new one.
+const recent = (map, ip) => (window(map, ip) || []).length;
+// Drop IPs that have been quiet for a minute so the tables do not grow forever.
+setInterval(() => {
+  for (const map of [hits, fails, relayHits]) for (const ip of map.keys()) if (!window(map, ip).length) map.delete(ip);
+}, WINDOW_MS).unref();
 
 function run(cmd, args) {
   return new Promise((resolve) => {
@@ -111,13 +124,15 @@ const server = http.createServer(async (req, res) => {
   }
   if (bump(hits, ip, 300)) return send(res, 429, { error: 'rate_limited' });
 
+  // After 5 wrong tokens in a minute this address is locked out, even for a correct token.
+  if (recent(fails, ip) >= 5) return send(res, 429, { error: 'too_many_failures' });
   const auth = req.headers.authorization || '';
   const given = auth.startsWith('Bearer ') ? auth.slice(7) : '';
   const a = Buffer.from(given);
   const b = Buffer.from(TOKEN);
   const ok = a.length === b.length && require('crypto').timingSafeEqual(a, b);
   if (!ok) {
-    if (bump(fails, ip, 5)) return send(res, 429, { error: 'too_many_failures' });
+    bump(fails, ip, 5);
     return send(res, 401, { error: 'unauthorized' });
   }
 

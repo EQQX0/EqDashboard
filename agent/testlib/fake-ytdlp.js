@@ -19,6 +19,15 @@ if (url.includes('fail')) {
   process.exit(1);
 }
 console.log('NAME|Fake Title');
+if (url.includes('inject')) {
+  // A hostile page title can print fake lines: point FINAL at a file outside the job folder, print no real one.
+  const outside = path.join(temp, '..', 'outside.txt');
+  fs.writeFileSync(outside, 'secret');
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(path.join(home, 'Fake Title [abc].mp4'), 'x'.repeat(1000));
+  console.log('FINAL|' + outside);
+  process.exit(0);
+}
 console.log('DL|250|1000|NA|50|15');
 if (url.includes('slow')) {
   setInterval(() => {}, 1000); // keep running until killed

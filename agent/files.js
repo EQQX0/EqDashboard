@@ -4,6 +4,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 const STATUS = {
   bad_path: 400, not_found: 404, exists: 409, too_large: 413,
@@ -326,7 +327,8 @@ function createRoutes({ root, maxUploadBytes }) {
     await fsp.mkdir(dir.abs, { recursive: true });
     resolveSafe(ROOT, targetRel); // re-verify after directory creation
 
-    const part = target + '.part';
+    // A unique name per upload: two uploads of the same file must not write into one partial file.
+    const part = `${target}.${crypto.randomBytes(4).toString('hex')}.part`;
     const ws = fs.createWriteStream(part, { flags: 'w' });
     const wsClosed = new Promise((r) => ws.once('close', r));
     let size = 0;
@@ -411,7 +413,7 @@ function createRoutes({ root, maxUploadBytes }) {
     if (!(await statOrNull(abs))) throw E('not_found');
     const trash = path.join(ROOT, '.trash');
     await fsp.mkdir(trash, { recursive: true });
-    const base = `${Date.now()}-${segs[segs.length - 1]}`;
+    const base = `${Date.now()}-${segs[segs.length - 1].slice(0, 100)}`; // short enough for any file name
     for (let i = 0; ; i++) {
       const dest = path.join(trash, i === 0 ? base : `${base}-${i}`);
       if (await statOrNull(dest)) continue;
@@ -434,9 +436,38 @@ function createRoutes({ root, maxUploadBytes }) {
 const FILES_ROOT = process.env.FILES_ROOT || path.join(os.homedir(), 'samsung-cloud');
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 5368709120);
 
-// Creates FILES_ROOT; called by server.js at startup.
+const TRASH_DAYS = Number(process.env.TRASH_DAYS || 30);
+const DAY = 86400000;
+
+// Removes trash entries older than maxAgeMs. Entries are named '<epoch ms>-<name>' (older ones fall back to their
+// modified time); half-finished site deploys ('.staging-*') go after a day. Returns how many were removed.
+async function purgeTrash(root, maxAgeMs, now = Date.now()) {
+  const trash = path.join(path.resolve(root), '.trash');
+  let names;
+  try { names = await fsp.readdir(trash); } catch { return 0; }
+  let removed = 0;
+  for (const name of names) {
+    const p = path.join(trash, name);
+    try {
+      let age;
+      const m = /^(\d{13})-/.exec(name);
+      if (m) age = now - Number(m[1]);
+      else age = now - (await fsp.lstat(p)).mtimeMs;
+      const limit = name.startsWith('.staging-') ? Math.min(maxAgeMs, DAY) : maxAgeMs;
+      if (age >= limit) { await fsp.rm(p, { recursive: true, force: true }); removed++; }
+    } catch { /* vanished or busy: try again next time */ }
+  }
+  return removed;
+}
+
+// Creates FILES_ROOT and starts emptying old trash; called by server.js at startup.
 function init() {
   fs.mkdirSync(FILES_ROOT, { recursive: true });
+  if (TRASH_DAYS > 0) {
+    const sweep = () => purgeTrash(FILES_ROOT, TRASH_DAYS * DAY).catch(() => {});
+    sweep();
+    setInterval(sweep, 6 * 3600 * 1000).unref();
+  }
 }
 
 module.exports = {
@@ -445,6 +476,7 @@ module.exports = {
   resolveSafe,
   validName,
   parseRange,
+  purgeTrash,
   init,
   FILES_ROOT,
   MAX_UPLOAD_BYTES,
