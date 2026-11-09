@@ -65,6 +65,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import android.content.Context
+import com.eqqx2.s21control.BuildConfig
+import com.eqqx2.s21control.data.ApkInstaller
+import com.eqqx2.s21control.data.UpdateClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.eqqx2.s21control.data.AgentClient
 import com.eqqx2.s21control.data.FetchResult
 import com.eqqx2.s21control.data.FilesClient
@@ -95,7 +101,25 @@ fun S21App() {
         val filesVm: FilesViewModel = viewModel(factory = viewModelFactory {
             initializer { FilesViewModel(filesClient, store) }
         })
+        val updateVm: UpdateViewModel = viewModel(factory = viewModelFactory {
+            initializer {
+                UpdateViewModel(
+                    appContext = context.applicationContext,
+                    client = UpdateClient(),
+                    store = store,
+                    baseUpdateUrl = BuildConfig.UPDATE_BASE_URL,
+                    versionName = BuildConfig.VERSION_NAME,
+                    versionCode = BuildConfig.VERSION_CODE,
+                    prefs = context.applicationContext.getSharedPreferences(
+                        UpdateViewModel.PREFS_NAME, Context.MODE_PRIVATE,
+                    ),
+                )
+            }
+        })
         val scope = rememberCoroutineScope()
+        LaunchedEffect(Unit) {
+            withContext(Dispatchers.IO) { ApkInstaller.clearOldUpdates(context.applicationContext) }
+        }
 
         var loggedIn by remember { mutableStateOf(store.token != null) }
         var notice by remember { mutableStateOf<String?>(null) }
@@ -103,6 +127,7 @@ fun S21App() {
         val reduce = rememberReducedMotion()
         var busy by remember { mutableStateOf(false) }
 
+        LaunchedEffect(loggedIn) { if (loggedIn) updateVm.backgroundCheck() }
         val state by vm.state.collectAsState()
         LaunchedEffect(state.unauthorized) {
             if (state.unauthorized) {
@@ -151,8 +176,10 @@ fun S21App() {
             Shell(
                 vm = vm,
                 filesVm = filesVm,
+                updateVm = updateVm,
                 onLogout = {
                     store.clearToken()
+                    updateVm.reset()
                     vm.reset()
                     filesVm.reset()
                     notice = null
@@ -168,7 +195,11 @@ private val TopBarHeight = 76.dp
 private val NavHeight = 68.dp
 
 @Composable
-private fun Shell(vm: StatusViewModel, filesVm: FilesViewModel, onLogout: () -> Unit) {
+private fun Shell(vm: StatusViewModel, filesVm: FilesViewModel, updateVm: UpdateViewModel, onLogout: () -> Unit) {
+    val updateState by updateVm.state.collectAsState()
+    var showSheet by rememberSaveable { mutableStateOf(false) }
+    InstallLauncher(updateVm)
+    if (showSheet) UpdateSheet(updateVm) { showSheet = false }
     var tab by rememberSaveable { mutableStateOf(0) }
     val reduce = rememberReducedMotion()
     val density = LocalDensity.current
@@ -195,12 +226,15 @@ private fun Shell(vm: StatusViewModel, filesVm: FilesViewModel, onLogout: () -> 
                 label = "tabs",
             ) { t ->
                 when (t) {
-                    0 -> OverviewScreen(vm, topInset, navClearance + 24.dp, Modifier.fillMaxSize())
+                    0 -> OverviewScreen(
+                        vm, topInset, navClearance + 24.dp, Modifier.fillMaxSize(),
+                        updateInfo = updateState.available, onUpdateClick = { showSheet = true },
+                    )
                     1 -> FilesScreen(filesVm, topInset, navClearance + 8.dp, Modifier.fillMaxSize())
                     else -> ComingSoon(tabs[t].label, topInset, navClearance)
                 }
             }
-            TopPill(onLogout, Modifier.align(Alignment.TopCenter).padding(top = statusTop))
+            TopPill(onLogout, { showSheet = true }, updateState.available != null, Modifier.align(Alignment.TopCenter).padding(top = statusTop))
             BottomNav(
                 selected = tab,
                 onSelect = { tab = it },
@@ -212,7 +246,7 @@ private fun Shell(vm: StatusViewModel, filesVm: FilesViewModel, onLogout: () -> 
 }
 
 @Composable
-private fun TopPill(onLogout: () -> Unit, modifier: Modifier = Modifier) {
+private fun TopPill(onLogout: () -> Unit, onAbout: () -> Unit, updateAvailable: Boolean, modifier: Modifier = Modifier) {
     Row(
         modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -243,12 +277,30 @@ private fun TopPill(onLogout: () -> Unit, modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.size(8.dp))
         Box(
-            Modifier.size(40.dp).clip(S21Shapes.Circle).background(S21Colors.LogoRed)
-                .border(1.dp, S21Colors.GlassBorder, S21Shapes.Circle)
-                .clearAndSetSemantics {},
+            Modifier
+                .size(48.dp)
+                .clip(S21Shapes.Circle)
+                .clickable(onClickLabel = "Open about and updates", role = Role.Button, onClick = onAbout)
+                .semantics {
+                    contentDescription =
+                        if (updateAvailable) "About and updates, update available" else "About and updates"
+                },
             contentAlignment = Alignment.Center,
         ) {
-            Text("A", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Box(
+                Modifier.size(40.dp).clip(S21Shapes.Circle).background(S21Colors.LogoRed)
+                    .border(1.dp, S21Colors.GlassBorder, S21Shapes.Circle),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("A", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            if (updateAvailable) {
+                Box(
+                    Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp).size(12.dp)
+                        .clip(S21Shapes.Circle).background(S21Colors.Amber)
+                        .border(1.dp, S21Colors.Ink, S21Shapes.Circle),
+                )
+            }
         }
     }
 }

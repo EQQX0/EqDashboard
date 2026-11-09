@@ -30,6 +30,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.eqqx2.s21control.data.Status
+import com.eqqx2.s21control.data.UpdateInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
@@ -42,7 +43,14 @@ private val AmberOrange = Brush.linearGradient(listOf(Color(0xFFF59E0B), Color(0
 private val BlueCyan = Brush.linearGradient(listOf(Color(0xFF3B82F6), Color(0xFF06B6D4)))
 
 @Composable
-fun OverviewScreen(vm: StatusViewModel, topInset: Dp, bottomInset: Dp, modifier: Modifier = Modifier) {
+fun OverviewScreen(
+    vm: StatusViewModel,
+    topInset: Dp,
+    bottomInset: Dp,
+    modifier: Modifier = Modifier,
+    updateInfo: UpdateInfo? = null,
+    onUpdateClick: () -> Unit = {},
+) {
     val state by vm.state.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
@@ -84,6 +92,7 @@ fun OverviewScreen(vm: StatusViewModel, topInset: Dp, bottomInset: Dp, modifier:
             .padding(start = 16.dp, end = 16.dp, top = topInset, bottom = bottomInset),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (updateInfo != null) UpdateBanner(updateInfo, onUpdateClick)
         Column(Modifier.appear(0, intro).padding(bottom = 4.dp)) {
             Text("Overview", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Light)
             Text("Live status of your S21 server", color = S21Colors.OnCrimsonMuted, fontSize = 14.sp)

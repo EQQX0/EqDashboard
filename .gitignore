@@ -13,3 +13,9 @@ app/app/build/
 node_modules/
 .idea/
 *.log
+
+# release signing and release script output
+app/keystore.properties
+*.jks
+*.keystore
+scripts/out/

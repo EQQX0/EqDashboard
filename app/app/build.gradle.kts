@@ -1,8 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+val appVersionCode = (project.findProperty("APP_VERSION_CODE") as String).trim().toInt()
+val appVersionName = (project.findProperty("APP_VERSION_NAME") as String).trim()
+val updateBaseUrl = (project.findProperty("UPDATE_BASE_URL") as String).trim()
+
+val keystoreFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystoreFile.exists()) keystoreFile.inputStream().use { load(it) }
 }
 
 android {
@@ -13,13 +24,26 @@ android {
         applicationId = "com.eqqx2.s21control"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+        buildConfigField("String", "UPDATE_BASE_URL", "\"$updateBaseUrl\"")
+    }
+
+    signingConfigs {
+        if (keystoreFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     compileOptions {
@@ -31,6 +55,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
@@ -55,4 +80,19 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+}
+
+// Release builds need app/keystore.properties; debug builds and tests do not.
+gradle.taskGraph.whenReady {
+    val releaseRequested = allTasks.any { t ->
+        t.project == project && t.name.contains("Release") &&
+            (t.name.startsWith("assemble") || t.name.startsWith("bundle") ||
+                t.name.startsWith("package") || t.name.startsWith("sign"))
+    }
+    if (releaseRequested && !keystoreFile.exists()) {
+        throw GradleException(
+            "Release signing is not configured: create ${keystoreFile.path} with " +
+                "storeFile, storePassword, keyAlias and keyPassword (see scripts/release.ps1)."
+        )
+    }
 }
