@@ -26,6 +26,8 @@ module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({ url, expiresInSec: 300 });
   } catch (e) {
+    // Reason only (e.g. "status 401"); never log tokens, headers or env values.
+    console.error('apk upstream failure:', e instanceof gh.UpstreamError ? e.message : 'unexpected');
     send(res, 502, 'upstream');
   }
 };

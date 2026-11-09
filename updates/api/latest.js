@@ -18,6 +18,8 @@ module.exports = async (req, res) => {
       publishedAt: release.published_at || null,
     });
   } catch (e) {
+    // Reason only (e.g. "status 401"); never log tokens, headers or env values.
+    console.error('latest upstream failure:', e instanceof gh.UpstreamError ? e.message : 'unexpected');
     send(res, 502, 'upstream');
   }
 };
