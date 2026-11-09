@@ -78,6 +78,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.eqqx2.s21control.data.AgentClient
 import com.eqqx2.s21control.data.DownloadsClient
+import com.eqqx2.s21control.data.VpsClient
 import com.eqqx2.s21control.data.FetchResult
 import com.eqqx2.s21control.data.FilesClient
 import com.eqqx2.s21control.data.SitesClient
@@ -116,6 +117,10 @@ fun S21App() {
         val downloadsVm: DownloadsViewModel = viewModel(factory = viewModelFactory {
             initializer { DownloadsViewModel(downloadsClient, store) }
         })
+        val vpsClient = remember { VpsClient() }
+        val vpsVm: VpsViewModel = viewModel(factory = viewModelFactory {
+            initializer { VpsViewModel(vpsClient, store) }
+        })
         val updateVm: UpdateViewModel = viewModel(factory = viewModelFactory {
             initializer {
                 UpdateViewModel(
@@ -142,7 +147,7 @@ fun S21App() {
         var busy by remember { mutableStateOf(false) }
 
         LaunchedEffect(loggedIn) {
-            if (loggedIn) updateVm.backgroundCheck() else downloadsVm.reset()
+            if (loggedIn) updateVm.backgroundCheck() else { downloadsVm.reset(); vpsVm.reset() }
         }
         val state by vm.state.collectAsState()
         LaunchedEffect(state.unauthorized) {
@@ -179,6 +184,19 @@ fun S21App() {
             if (downloadsState.unauthorized) {
                 loggedIn = false
                 notice = "Token rejected"; noticeTick++
+                downloadsVm.reset()
+                sitesVm.reset()
+                filesVm.reset()
+                vm.reset()
+            }
+        }
+
+        val vpsState by vpsVm.state.collectAsState()
+        LaunchedEffect(vpsState.unauthorized) {
+            if (vpsState.unauthorized) {
+                loggedIn = false
+                notice = "Token rejected"; noticeTick++
+                vpsVm.reset()
                 downloadsVm.reset()
                 sitesVm.reset()
                 filesVm.reset()
@@ -248,6 +266,7 @@ fun S21App() {
                 filesVm = filesVm,
                 sitesVm = sitesVm,
                 downloadsVm = downloadsVm,
+                vpsVm = vpsVm,
                 updateVm = updateVm,
             )
         }
@@ -283,6 +302,7 @@ private fun Shell(
     filesVm: FilesViewModel,
     sitesVm: SitesViewModel,
     downloadsVm: DownloadsViewModel,
+    vpsVm: VpsViewModel,
     updateVm: UpdateViewModel,
 ) {
     val updateState by updateVm.state.collectAsState()
@@ -330,7 +350,7 @@ private fun Shell(
                         onOpenFiles = { path -> filesVm.openPath(path); tab = 1 },
                         modifier = Modifier.fillMaxSize(),
                     )
-                    else -> ComingSoon(tabs[t].label, topInset, navClearance)
+                    else -> VpsScreen(vpsVm, topInset, navClearance + 8.dp, Modifier.fillMaxSize())
                 }
             }
             TopPill({ showSheet = true }, updateState.available != null, Modifier.align(Alignment.TopCenter).padding(top = statusTop))
@@ -440,21 +460,6 @@ private fun BottomNav(selected: Int, onSelect: (Int) -> Unit, reduce: Boolean, m
                         maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 6.dp),
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ComingSoon(name: String, topInset: Dp, bottomInset: Dp) {
-    Box(
-        Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = topInset, bottom = bottomInset),
-        contentAlignment = Alignment.Center,
-    ) {
-        GlassCard(Modifier.fillMaxWidth().appear()) {
-            Column(Modifier.padding(24.dp)) {
-                Text(name, color = S21Colors.OnGlass, fontSize = 24.sp, fontWeight = FontWeight.Light)
-                Text("Coming soon", color = S21Colors.OnGlassMuted, fontSize = 16.sp)
             }
         }
     }

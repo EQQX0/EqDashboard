@@ -428,7 +428,7 @@ private fun DownloadRow(
 
 /** Secondary button for light glass cards: dark outline and text, at least 48dp tall. */
 @Composable
-private fun OutlinePill(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun OutlinePill(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
         modifier
             .heightIn(min = 48.dp)

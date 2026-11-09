@@ -8,6 +8,7 @@ const files = require('./files');
 const sites = require('./sites');
 const tunnel = require('./tunnel');
 const downloads = require('./downloads');
+const vps = require('./vps');
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1'; // cloudflared connects locally
@@ -88,6 +89,7 @@ const routes = {
   ...sites.routes,
   ...tunnel.routes,
   ...downloads.routes,
+  ...vps.routes,
 };
 
 function send(res, code, body) {
