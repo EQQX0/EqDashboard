@@ -50,6 +50,9 @@ fun OverviewScreen(
     modifier: Modifier = Modifier,
     updateInfo: UpdateInfo? = null,
     onUpdateClick: () -> Unit = {},
+    agentUpdate: AgentUpdatePhase = AgentUpdatePhase.Hidden,
+    onAgentUpdate: () -> Unit = {},
+    onAgentDismiss: () -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -93,6 +96,7 @@ fun OverviewScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (updateInfo != null) UpdateBanner(updateInfo, onUpdateClick)
+        AgentUpdateCard(agentUpdate, rememberReducedMotion(), onAgentUpdate, onAgentDismiss)
         Column(Modifier.appear(0, intro).padding(bottom = 4.dp)) {
             Text("Overview", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Light)
             Text("Live status of your S21 server", color = S21Colors.OnCrimsonMuted, fontSize = 14.sp)

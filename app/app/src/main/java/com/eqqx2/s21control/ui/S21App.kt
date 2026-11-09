@@ -79,6 +79,7 @@ import kotlinx.coroutines.withContext
 import com.eqqx2.s21control.data.AgentClient
 import com.eqqx2.s21control.data.DownloadsClient
 import com.eqqx2.s21control.data.VpsClient
+import com.eqqx2.s21control.data.AgentUpdateClient
 import com.eqqx2.s21control.data.FetchResult
 import com.eqqx2.s21control.data.FilesClient
 import com.eqqx2.s21control.data.SitesClient
@@ -117,6 +118,10 @@ fun S21App() {
         val downloadsVm: DownloadsViewModel = viewModel(factory = viewModelFactory {
             initializer { DownloadsViewModel(downloadsClient, store) }
         })
+        val agentUpdateClient = remember { AgentUpdateClient() }
+        val agentUpdateVm: AgentUpdateViewModel = viewModel(factory = viewModelFactory {
+            initializer { AgentUpdateViewModel(agentUpdateClient, store) }
+        })
         val vpsClient = remember { VpsClient() }
         val vpsVm: VpsViewModel = viewModel(factory = viewModelFactory {
             initializer { VpsViewModel(vpsClient, store) }
@@ -147,7 +152,7 @@ fun S21App() {
         var busy by remember { mutableStateOf(false) }
 
         LaunchedEffect(loggedIn) {
-            if (loggedIn) updateVm.backgroundCheck() else { downloadsVm.reset(); vpsVm.reset() }
+            if (loggedIn) updateVm.backgroundCheck() else { downloadsVm.reset(); vpsVm.reset(); agentUpdateVm.reset() }
         }
         val state by vm.state.collectAsState()
         LaunchedEffect(state.unauthorized) {
@@ -267,6 +272,7 @@ fun S21App() {
                 sitesVm = sitesVm,
                 downloadsVm = downloadsVm,
                 vpsVm = vpsVm,
+                agentUpdateVm = agentUpdateVm,
                 updateVm = updateVm,
             )
         }
@@ -303,8 +309,11 @@ private fun Shell(
     sitesVm: SitesViewModel,
     downloadsVm: DownloadsViewModel,
     vpsVm: VpsViewModel,
+    agentUpdateVm: AgentUpdateViewModel,
     updateVm: UpdateViewModel,
 ) {
+    val agentPhase by agentUpdateVm.phase.collectAsState()
+    LaunchedEffect(Unit) { agentUpdateVm.checkOnce() }
     val updateState by updateVm.state.collectAsState()
     var showSheet by rememberSaveable { mutableStateOf(false) }
     InstallLauncher(updateVm)
@@ -338,6 +347,7 @@ private fun Shell(
                     0 -> OverviewScreen(
                         vm, topInset, navClearance + 24.dp, Modifier.fillMaxSize(),
                         updateInfo = updateState.available, onUpdateClick = { showSheet = true },
+                        agentUpdate = agentPhase, onAgentUpdate = agentUpdateVm::update, onAgentDismiss = agentUpdateVm::dismiss,
                     )
                     1 -> FilesScreen(filesVm, topInset, navClearance + 8.dp, Modifier.fillMaxSize())
                     2 -> DownloadsScreen(

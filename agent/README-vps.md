@@ -33,6 +33,10 @@ All routes need the bearer token.
 
 Creating takes a few minutes on a first download. The list shows the current step while it runs.
 
+## Updating the agent
+
+The app checks once per run. When a newer `s21-agent-X.Y.Z.zip` is attached to the latest GitHub release, Overview shows an "Update agent" card. The agent downloads the zip from GitHub only, checks the SHA-256 when GitHub supplies one, checks that every script parses, backs up the old files to `~/s21-server/agent-backup`, copies the new ones over and restarts. `.token` and `data` are never touched. `GET /agent/update` checks and `POST /agent/update` applies.
+
 ## Limits
 
 - No root means no systemd, no Docker and no kernel features. Services start by hand or from a script you run over SSH.
