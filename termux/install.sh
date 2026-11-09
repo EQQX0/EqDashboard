@@ -55,7 +55,25 @@ if [ -s "$DIR/agent/.token" ]; then
 else
   echo "The agent did not start. Look at: tail ~/s21-server/agent.log"
 fi
-[ -n "$DOMAIN" ] && echo "Server address for the app: https://api.$DOMAIN"
+if [ -n "$DOMAIN" ]; then
+  echo "Server address for the app: https://api.$DOMAIN"
+  # A pairing file holds the address and token, so signing in is "pick this file" instead of typing.
+  if [ -s "$DIR/agent/.token" ]; then
+    if [ ! -d "$HOME/storage/downloads" ]; then
+      termux-setup-storage 2>/dev/null || true   # Android asks for permission; tap Allow
+      for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do [ -d "$HOME/storage/downloads" ] && break; sleep 1; done
+    fi
+    if [ -d "$HOME/storage/downloads" ]; then PAIR="$HOME/storage/downloads/s21-control.s21"; else PAIR="$HOME/s21-control.s21"; fi
+    if (cd "$DIR/agent" && node pair.js --url "https://api.$DOMAIN" --out "$PAIR" --force >/dev/null); then
+      echo
+      echo "Pairing file: $PAIR"
+      echo " - Phone app: tap "Import token file" on the sign-in screen and pick it (it is in your Downloads folder)."
+      echo " - Windows app: put the file in Downloads or Desktop and the app signs in by itself."
+      echo " - Send it to another device: termux-share $PAIR"
+      echo " - It holds your token. Delete it when done: rm $PAIR"
+    fi
+  fi
+fi
 echo
 # Battery and temperature need the Termux:API Android app (the package is installed, the app is separate).
 if ! timeout 8 termux-battery-status 2>/dev/null | grep -q percentage; then
