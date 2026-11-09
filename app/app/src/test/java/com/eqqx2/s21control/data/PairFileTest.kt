@@ -53,4 +53,13 @@ class PairFileTest {
         assertNull(readPairText(ByteArray(PAIR_MAX_BYTES + 1) { 'a'.code.toByte() }.inputStream()))
         assertEquals("hi", readPairText("hi".toByteArray().inputStream()))
     }
+
+    @Test
+    fun onlyPairFileNamesAreAccepted() {
+        assertTrue(isPairFileName("samsung-server.pair"))
+        assertTrue(isPairFileName("My Server.PAIR"))
+        assertTrue(!isPairFileName("s21-control.s21"))
+        assertTrue(!isPairFileName("samsung-server.pair.txt"))
+        assertTrue(!isPairFileName(""))
+    }
 }

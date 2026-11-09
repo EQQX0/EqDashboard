@@ -1,5 +1,6 @@
 package com.eqqx2.s21control.ui
 
+import android.provider.OpenableColumns
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -69,6 +70,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.eqqx2.s21control.data.PairResult
+import com.eqqx2.s21control.data.isPairFileName
 import com.eqqx2.s21control.data.parsePairFile
 import com.eqqx2.s21control.data.readPairText
 import com.eqqx2.s21control.BuildConfig
@@ -267,6 +269,19 @@ fun S21App() {
                     } catch (e: Exception) {
                         null
                     }
+                }
+                val name = withContext(Dispatchers.IO) {
+                    try {
+                        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                if (name != null && !isPairFileName(name)) {
+                    notice = "Pick a samsung-server.pair file. Older .s21 files no longer work"; noticeTick++
+                    busy = false
+                    return@launch
                 }
                 val parsed = text?.let { parsePairFile(it) }
                 if (parsed is PairResult.Ok) {

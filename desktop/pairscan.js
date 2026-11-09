@@ -1,19 +1,19 @@
 'use strict';
-// Looks for a pairing file (*.pair, or the older *.s21) in a few folders so signing in needs no typing.
+// Looks for a pairing file (*.pair) in a few folders so signing in needs no typing.
 const fs = require('fs');
 const path = require('path');
 const { parsePair } = require('./api');
 
 const MAX = 4096;
 
-/** Returns { file, url, token } for the newest valid *.pair or *.s21 file in [dirs], or null. */
+/** Returns { file, url, token } for the newest valid *.pair file in [dirs], or null. */
 function findPairFile(dirs, fsImpl = fs) {
   const found = [];
   for (const dir of dirs) {
     let names;
     try { names = fsImpl.readdirSync(dir); } catch { continue; }
     for (const n of names) {
-      if (!/\.(pair|s21)$/i.test(n)) continue;
+      if (!/\.pair$/i.test(n)) continue;
       const file = path.join(dir, n);
       try {
         const st = fsImpl.statSync(file);

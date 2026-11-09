@@ -9,6 +9,9 @@ import java.io.InputStream
 
 const val PAIR_MAX_BYTES = 4096
 
+/** Only files made by the current installer (name ends in .pair) are accepted; older .s21 files are not. */
+fun isPairFileName(name: String): Boolean = name.trim().endsWith(".pair", ignoreCase = true)
+
 sealed interface PairResult {
     data class Ok(val url: String, val token: String) : PairResult
     data class Invalid(val reason: String) : PairResult
