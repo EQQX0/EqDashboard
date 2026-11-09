@@ -1,0 +1,15 @@
+# secrets and machine-specific
+.token
+*.token
+.env
+local.properties
+# build output
+app/.gradle/
+app/.kotlin/
+app/build/
+app/app/build/
+*.apk
+*.zip
+node_modules/
+.idea/
+*.log
