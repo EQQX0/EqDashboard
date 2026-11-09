@@ -431,13 +431,7 @@ function createRoutes({ root, maxUploadBytes }) {
   };
 }
 
-// A phone set up before the rename keeps using its old folder (s21-cloud) until the person moves it.
-const defaultFilesRoot = () => {
-  const fresh = path.join(os.homedir(), 'samsung-cloud');
-  const legacy = path.join(os.homedir(), 's21-cloud');
-  return !require('fs').existsSync(fresh) && require('fs').existsSync(legacy) ? legacy : fresh;
-};
-const FILES_ROOT = process.env.FILES_ROOT || defaultFilesRoot();
+const FILES_ROOT = process.env.FILES_ROOT || path.join(os.homedir(), 'samsung-cloud');
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 5368709120);
 
 // Creates FILES_ROOT; called by server.js at startup.

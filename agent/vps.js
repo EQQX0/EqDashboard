@@ -89,10 +89,7 @@ function createVps(opts = {}) {
   const DATA_DIR = path.resolve(opts.dataDir || env.DATA_DIR || path.join(__dirname, 'data'));
   const META_FILE = path.join(DATA_DIR, 'vps.json');
   const PROOT = opts.prootCmd || [env.PROOT_DISTRO_BIN || 'proot-distro'];
-  // proot-distro name of a slice. Slices made before the project was renamed keep their old prefix, found by the folder on disk.
-  const ROOTFS = opts.rootfsDir || env.PROOT_ROOTFS_DIR || path.join(env.PREFIX || '/data/data/com.termux/files/usr', 'var/lib/proot-distro/installed-rootfs');
-  const LEGACY_PREFIX = 's21-';
-  const alias = (name) => (fs.existsSync(path.join(ROOTFS, LEGACY_PREFIX + name)) ? LEGACY_PREFIX : 'samsung-') + name;
+  const alias = (name) => 'samsung-' + name;
   const MAX = Number(opts.maxSlices || env.VPS_MAX || 4);
   const MIN_FREE = Number(opts.minFree !== undefined ? opts.minFree : (env.VPS_MIN_FREE_BYTES || 1610612736));
   const BIND = opts.bind || env.VPS_BIND || '0.0.0.0';
