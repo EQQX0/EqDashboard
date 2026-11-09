@@ -46,7 +46,10 @@ const hostOk = (h) => h === 'api.github.com' || h === 'github.com' || h.endsWith
 function createSelfUpdate(opts = {}) {
   const env = process.env;
   const AGENT_DIR = path.resolve(opts.agentDir || __dirname);
-  const REPO = opts.repo || env.AGENT_UPDATE_REPO || 'EQQX0/EqDashboard';
+  // Where releases come from: AGENT_UPDATE_REPO, else package.json "repository" ("owner/name"). Forks change that one line.
+  let pkgRepo = '';
+  try { pkgRepo = String(JSON.parse(fs.readFileSync(path.join(AGENT_DIR, 'package.json'), 'utf8')).repository || ''); } catch { /* none */ }
+  const REPO = String(opts.repo || env.AGENT_UPDATE_REPO || pkgRepo).trim();
   const API = opts.apiBase || env.AGENT_UPDATE_API || 'https://api.github.com';
   const insecureTest = !!opts.allowAnyHost; // tests only: talk to a local http server
   let running = false;
@@ -96,6 +99,7 @@ function createSelfUpdate(opts = {}) {
   }
 
   async function latest() {
+    if (!/^[\w.-]+\/[\w.-]+$/.test(REPO)) throw new ApiError(503, 'not_configured');
     const body = await get(`${API}/repos/${REPO}/releases/latest`, { max: 1024 * 1024, accept: 'application/vnd.github+json' });
     let rel;
     try { rel = JSON.parse(body.toString('utf8')); } catch { throw new ApiError(502, 'github_error'); }

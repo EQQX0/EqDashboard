@@ -92,7 +92,7 @@ function install(version = '0.7.0') {
 }
 const make = (agent, gh, extra = {}) => {
   const restarts = [];
-  const su = createSelfUpdate({ agentDir: agent, apiBase: gh.base, allowAnyHost: true, restart: () => restarts.push(1), ...extra });
+  const su = createSelfUpdate({ repo: 'owner/name', agentDir: agent, apiBase: gh.base, allowAnyHost: true, restart: () => restarts.push(1), ...extra });
   return { su, restarts };
 };
 const code = (p) => p.then(() => null, (e) => e.code);
@@ -175,10 +175,22 @@ test('github errors map to codes, and production refuses non-GitHub hosts', asyn
   const { agent } = install('0.7.0');
   const gh = await fakeGithub(makeZip({}), { status: 403 });
   assert.equal(await code(make(agent, gh).su.check()), 'rate_limited');
-  const real = createSelfUpdate({ agentDir: agent, apiBase: 'http://127.0.0.1:1' });
+  const real = createSelfUpdate({ repo: 'owner/name', agentDir: agent, apiBase: 'http://127.0.0.1:1' });
   assert.equal(await code(real.check()), 'untrusted_host');
-  const evil = createSelfUpdate({ agentDir: agent, apiBase: 'https://evil.example.com' });
+  const evil = createSelfUpdate({ repo: 'owner/name', agentDir: agent, apiBase: 'https://evil.example.com' });
   assert.equal(await code(evil.check()), 'untrusted_host');
+});
+
+test('no update source configured: nothing is contacted; package.json repository is used', async () => {
+  const { agent } = install('0.7.0');
+  const gh = await fakeGithub(makeZip(goodFiles('0.8.0')));
+  const bare = () => createSelfUpdate({ agentDir: agent, apiBase: gh.base, allowAnyHost: true });
+  assert.equal(await code(bare().check()), 'not_configured');
+  assert.equal(gh.hits(), 0);
+  const pkg = path.join(agent, 'package.json');
+  fs.writeFileSync(pkg, JSON.stringify({ ...JSON.parse(fs.readFileSync(pkg, 'utf8')), repository: 'someone/their-repo' }));
+  assert.equal((await bare().check()).available, true);
+  assert.equal(gh.hits(), 1);
 });
 
 test('http route: update then restart after the response finishes', async () => {

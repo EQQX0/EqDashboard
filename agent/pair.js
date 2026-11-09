@@ -5,11 +5,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const DEFAULT_URL = 'https://api.eqqx2.com';
 const FILE_NAME = 's21-control.s21';
 
 function parseArgs(argv) {
-  const out = { url: DEFAULT_URL, out: null, force: false, help: false };
+  const out = { url: null, out: null, force: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--force') out.force = true;
@@ -49,7 +48,8 @@ function run({ argv = [], env = process.env, home = os.homedir(), cwd = process.
   let args;
   try { args = parseArgs(argv); } catch (e) { stderr(e.message); return 2; }
   if (args.help) {
-    stdout('Usage: node pair.js [--url https://api.eqqx2.com] [--out <path>] [--force]');
+    stdout('Usage: node pair.js --url https://api.example.com [--out <path>] [--force]');
+    stdout('The address is where your tunnel serves this agent. AGENT_PUBLIC_URL works instead of --url.');
     return 0;
   }
   const token = readToken(env, dir);
@@ -57,13 +57,18 @@ function run({ argv = [], env = process.env, home = os.homedir(), cwd = process.
     stderr('No agent token found. Set AGENT_TOKEN, or start server.js once to create agent/.token (or set TOKEN_FILE).');
     return 1;
   }
-  if (!/^https:\/\/[^/\s]+/.test(args.url)) {
+  const url = args.url || env.AGENT_PUBLIC_URL || '';
+  if (!url) {
+    stderr('Say where the app reaches this agent: node pair.js --url https://api.example.com (or set AGENT_PUBLIC_URL).');
+    return 2;
+  }
+  if (!/^https:\/\/[^/\s]+/.test(url)) {
     stderr('--url must be an https:// address.');
     return 2;
   }
   const target = path.resolve(args.out || defaultOut(home, cwd));
   try {
-    fs.writeFileSync(target, buildPairFile(args.url, token), { mode: 0o600, flag: args.force ? 'w' : 'wx' });
+    fs.writeFileSync(target, buildPairFile(url, token), { mode: 0o600, flag: args.force ? 'w' : 'wx' });
     try { fs.chmodSync(target, 0o600); } catch { /* not supported on this platform */ }
   } catch (e) {
     if (e.code === 'EEXIST') stderr(`${target} already exists. Re-run with --force to overwrite it.`);
@@ -77,4 +82,4 @@ function run({ argv = [], env = process.env, home = os.homedir(), cwd = process.
 
 if (require.main === module) process.exitCode = run({ argv: process.argv.slice(2) });
 
-module.exports = { parseArgs, buildPairFile, readToken, defaultOut, run, DEFAULT_URL };
+module.exports = { parseArgs, buildPairFile, readToken, defaultOut, run };

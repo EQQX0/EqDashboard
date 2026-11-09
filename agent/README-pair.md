@@ -3,7 +3,7 @@
 `node pair.js` writes a small file that the S21 Control app can import, so you do not type the token on a phone.
 
 ```
-node pair.js [--url https://api.eqqx2.com] [--out <path>] [--force]
+node pair.js --url https://api.example.com [--out <path>] [--force]
 ```
 
 - The token comes from `AGENT_TOKEN`, else `TOKEN_FILE`, else `agent/.token`. With none of them, the command stops.

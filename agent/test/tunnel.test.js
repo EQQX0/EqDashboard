@@ -155,3 +155,15 @@ test('GET /tunnel/routes needs the token and returns the listing', async () => {
   assert.strictEqual(ok.json.found, true);
   assert.deepStrictEqual(ok.json.routes.map((r) => [r.hostname, r.up]), [['gym.test', true]]);
 });
+
+test('sites find their domain from the tunnel wildcard that points at the sites port', () => {
+  const { domainFromTunnel } = require('../sites');
+  const cfg = path.join(os.tmpdir(), 's21-cfg-' + process.pid + '.yml');
+  fs.writeFileSync(cfg, 'tunnel: x\ningress:\n  - hostname: api.example.com\n    service: http://127.0.0.1:8787\n  - hostname: "*.example.com"\n    service: http://127.0.0.1:8790\n  - service: http_status:404\n');
+  assert.strictEqual(domainFromTunnel(cfg, 8790), 'example.com');
+  assert.strictEqual(domainFromTunnel(cfg, 9999), '', 'a wildcard for another port is not ours');
+  assert.strictEqual(domainFromTunnel(path.join(os.tmpdir(), 'missing-cfg.yml'), 8790), '');
+  fs.writeFileSync(cfg, 'ingress:\n  - hostname: "*.evil.test"\n    service: http://10.0.0.5:8790\n');
+  assert.strictEqual(domainFromTunnel(cfg, 8790), '', 'only this machine counts');
+  fs.rmSync(cfg, { force: true });
+});

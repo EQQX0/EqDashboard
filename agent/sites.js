@@ -10,6 +10,7 @@ const https = require('https');
 const crypto = require('crypto');
 const files = require('./files');
 const zip = require('./zip');
+const tunnelCfg = require('./tunnel');
 
 const { resolveSafe, parseRange } = files;
 
@@ -47,6 +48,20 @@ function sendJson(res, code, body) {
 
 const rand = () => crypto.randomBytes(8).toString('hex');
 
+/** The `*.example.com` ingress entry that points at [port] on this machine, or ''. */
+function domainFromTunnel(configPath, port) {
+  try {
+    const text = fs.readFileSync(configPath, 'utf8');
+    if (text.length > 262144) return '';
+    for (const e of tunnelCfg.parseIngress(text)) {
+      const t = tunnelCfg.serviceTarget(e.service);
+      const m = /^\*\.([a-z0-9.-]+)$/i.exec(e.hostname || '');
+      if (m && t && t.port === port && ['127.0.0.1', 'localhost'].includes(t.host)) return m[1];
+    }
+  } catch { /* no tunnel config */ }
+  return '';
+}
+
 function createSites(opts = {}) {
   const FILES_ROOT = path.resolve(opts.filesRoot || files.FILES_ROOT);
   const SITES_ROOT = path.join(FILES_ROOT, 'sites');
@@ -54,8 +69,11 @@ function createSites(opts = {}) {
   const DATA_DIR = path.resolve(opts.dataDir || process.env.DATA_DIR || path.join(__dirname, 'data'));
   const TMP = path.join(DATA_DIR, 'tmp');
   const META_FILE = path.join(DATA_DIR, 'sites.json');
-  const DOMAIN = String(opts.domain || process.env.SITES_DOMAIN || 'eqqx2.com').toLowerCase();
   const PORT = Number(opts.port !== undefined ? opts.port : (process.env.SITES_PORT || 8790));
+  // No built-in domain. Use SITES_DOMAIN, else the wildcard hostname the tunnel already sends to the sites port.
+  const DOMAIN = String(opts.domain || process.env.SITES_DOMAIN || domainFromTunnel(
+    opts.tunnelConfig || process.env.TUNNEL_CONFIG || path.join(require('os').homedir(), '.cloudflared', 'config.yml'), PORT,
+  )).toLowerCase().trim();
   const ZIP_MAX = Number(opts.zipMax || process.env.SITE_ZIP_MAX_BYTES || 524288000);
   // Test-only: probe this URL instead of https://<hostname>/ in /sites/check.
   const CHECK_URL = opts.checkUrl || process.env.SITES_TEST_CHECK_URL || null;
@@ -274,6 +292,7 @@ function createSites(opts = {}) {
   let server = null;
   function start() {
     if (server) return server;
+    if (!DOMAIN) { console.log('sites are off: set SITES_DOMAIN to your domain to turn them on'); return null; }
     try {
       init();
       server = http.createServer((req, res) => {
@@ -297,9 +316,10 @@ function createSites(opts = {}) {
 
   // ---- management API ---------------------------------------------------------
 
-  function wrap(fn) {
+  function wrap(fn, needsDomain = true) {
     return async (req, res, url) => {
       try {
+        if (needsDomain && !DOMAIN) throw new ApiError(503, 'not_configured');
         init();
         await fn(req, res, url);
       } catch (e) {
@@ -407,7 +427,7 @@ function createSites(opts = {}) {
     const out = [];
     for (const name of Object.keys(state.sites).sort()) out.push(await view(name));
     sendJson(res, 200, { domain: DOMAIN, sites: out });
-  });
+  }, false);
 
   const create = wrap(async (req, res) => {
     const body = await readBody(req);
@@ -602,4 +622,4 @@ function createSites(opts = {}) {
 
 const instance = createSites();
 
-module.exports = { createSites, routes: instance.routes, start: instance.start, NAME_RE, RESERVED };
+module.exports = { createSites, domainFromTunnel, routes: instance.routes, start: instance.start, NAME_RE, RESERVED };

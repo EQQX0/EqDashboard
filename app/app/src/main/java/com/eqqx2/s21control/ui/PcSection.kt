@@ -197,7 +197,7 @@ private fun PcRow(
     onLights: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    val setUp = item.sshUser.isNotBlank() && item.hasLights
+    val setUp = item.sshUser.isNotBlank() // lights are optional, so they never keep the setup button on screen
     GlassCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -212,8 +212,8 @@ private fun PcRow(
             if (canOff) OutlinePill("Turn off", Modifier.fillMaxWidth(), onOff)
             if (item.hasLights && chip == "On") OutlinePill("Lights", Modifier.fillMaxWidth(), onLights)
             if (!setUp) {
-                // Shown only until shutdown and lights are both saved.
-                OutlinePill(if (item.sshUser.isBlank() && !item.hasLights) "Set up" else "Finish setup", Modifier.fillMaxWidth(), onSetup)
+                // Shown only until the Windows user is saved.
+                OutlinePill("Set up", Modifier.fillMaxWidth(), onSetup)
             }
             if (!canWake && !canOff) {
                 Text(
@@ -309,6 +309,7 @@ private fun SetupDialog(item: PcItem, vm: PcViewModel, onDismiss: () -> Unit) {
     var keyError by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    var showLights by rememberSaveable { mutableStateOf(item.hasLights) }
     LaunchedEffect(Unit) { vm.fetchKey { k, e -> key = k; keyError = e } }
     val userError = userInputError(user)
     val linkError = lightsLinkError(link, item.ip)
@@ -348,23 +349,27 @@ private fun SetupDialog(item: PcItem, vm: PcViewModel, onDismiss: () -> Unit) {
                 if (k != null) CommandBlock(pcSetupCommand(k), "Copy PowerShell command")
                 else Text(keyError ?: "Getting the S21's key", fontSize = 14.sp, color = if (keyError != null) S21Colors.OnGlassCritical else S21Colors.OnGlassMuted)
 
-                Text("Lights", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = S21Colors.OnGlass)
-                Text(
-                    "In EqRGB on the PC, turn on the phone remote and copy its link. The Lights button then works from any network, through the S21, while the PC is on and EqRGB is running.",
-                    fontSize = 14.sp,
-                )
-                if (item.hasLights) Text("A link is saved. Paste a new one to replace it.", fontSize = 14.sp, color = S21Colors.OnGlass)
-                OutlinedTextField(
-                    value = link, onValueChange = { link = it; error = null }, minLines = 2, maxLines = 4,
-                    label = { Text("EqRGB phone link", fontSize = 14.sp) }, isError = linkError != null,
-                    supportingText = { Text(linkError ?: "Treat this link like a password: anyone with it controls the lights.", fontSize = 14.sp) },
-                    textStyle = TextStyle(fontSize = 14.sp), colors = fieldColors(), modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinePill("Paste", Modifier.fillMaxWidth()) {
-                    clipboard.getText()?.text?.trim()?.takeIf { it.isNotEmpty() }?.let { link = it; error = null }
-                }
-                if (item.hasLights) {
-                    TextAction("Remove saved link", { vm.setLights(item, "") { err -> if (err == null) onDismiss() else error = err } }, Modifier.fillMaxWidth(), critical = true)
+                if (!showLights) {
+                    TextAction("Also add EqRGB lights (optional)", { showLights = true }, Modifier.fillMaxWidth())
+                } else {
+                    Text("Lights", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = S21Colors.OnGlass)
+                    Text(
+                        "In EqRGB on the PC, turn on the phone remote and copy its link. The Lights button then works from any network, through the S21, while the PC is on and EqRGB is running.",
+                        fontSize = 14.sp,
+                    )
+                    if (item.hasLights) Text("A link is saved. Paste a new one to replace it.", fontSize = 14.sp, color = S21Colors.OnGlass)
+                    OutlinedTextField(
+                        value = link, onValueChange = { link = it; error = null }, minLines = 2, maxLines = 4,
+                        label = { Text("EqRGB phone link", fontSize = 14.sp) }, isError = linkError != null,
+                        supportingText = { Text(linkError ?: "Treat this link like a password: anyone with it controls the lights.", fontSize = 14.sp) },
+                        textStyle = TextStyle(fontSize = 14.sp), colors = fieldColors(), modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinePill("Paste", Modifier.fillMaxWidth()) {
+                        clipboard.getText()?.text?.trim()?.takeIf { it.isNotEmpty() }?.let { link = it; error = null }
+                    }
+                    if (item.hasLights) {
+                        TextAction("Remove saved link", { vm.setLights(item, "") { err -> if (err == null) onDismiss() else error = err } }, Modifier.fillMaxWidth(), critical = true)
+                    }
                 }
                 error?.let { Text(it, color = S21Colors.OnGlassCritical, fontSize = 14.sp, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
             }

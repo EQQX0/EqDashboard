@@ -1,34 +1,49 @@
 # EqDashboard
 
-A dashboard app for running a home server on an Android phone.
+Run a home server from an Android phone and control it from an app.
 
-- `agent/` is a small Node.js server that runs in Termux on the phone. It reports status and manages a file cloud. Every request needs a bearer token.
-- `app/` is the Android app (Kotlin, Jetpack Compose) that talks to the agent.
-- `termux/` has setup, boot and watchdog scripts for the phone.
-- `scripts/release.ps1` builds a signed APK and publishes it as a GitHub release.
+The phone runs a small Node.js agent inside Termux. The app (Kotlin, Jetpack Compose) talks to that agent through your own Cloudflare Tunnel. Everything runs on hardware you own, under your own domain, with a token only you hold.
 
-## Run the agent
+## What it does
 
-```sh
-cd agent
-node server.js      # creates agent/.token on first run
-node --test         # tests
-```
+| Module | What you get |
+|---|---|
+| Overview | CPU, memory, storage, battery and temperature of the phone |
+| Files | A file cloud: browse, upload, download, rename, trash |
+| Downloads | Direct links, torrents (aria2) and video sites (yt-dlp) |
+| Sites | Static websites served from folders, one subdomain each |
+| VPS | Small Linux environments (proot-distro) with SSH |
+| My PC | Turn a computer on (Wake-on-LAN) and off (SSH) from the app |
+| Lights | Optional. Opens the [EqRGB](https://github.com/EQQX0/EqRGB) phone remote through the phone |
 
-The agent listens on 127.0.0.1:8787. Expose it with a Cloudflare Tunnel. Files live in `~/s21-cloud` (set `FILES_ROOT` to change it).
+You can use any subset. A module you skip stays empty.
 
-## Connect the app
+## Start here
 
-Run `node pair.js` on the phone. It writes a small file that holds the server address and token. Open the app and choose **Import token file**. Delete the file afterwards.
+1. Follow [docs/SETUP.md](docs/SETUP.md). It takes about 30 minutes and ends with the app showing your phone's status.
+2. Download `app.apk` from the [latest release](https://github.com/EQQX0/EqDashboard/releases/latest) and install it. On the sign-in screen, enter your own server address and token.
+
+## What you need
+
+- An Android phone that stays plugged in at home, with Termux from F-Droid
+- A domain on Cloudflare (the free plan works)
+- Optional: a wired Windows PC for the My PC module
+
+## Layout
+
+- `agent/` the Node.js server, plus one `README-*.md` per module
+- `app/` the Android app
+- `termux/` setup, tunnel, boot and watchdog scripts for the phone
+- `scripts/release.ps1` builds a signed APK and publishes a release
 
 ## Updates
 
-The app checks this repository's latest release, downloads `app.apk`, verifies its SHA-256 against `meta.json`, and asks you to confirm the install. Android only accepts the update if it is signed with the same key as the installed app.
+The app and the agent each check one GitHub repository for new releases. The default is this one (`UPDATE_REPO` in `app/gradle.properties` and `repository` in `agent/package.json`). To ship your own builds, change both to your repository. The [fork steps](docs/SETUP.md#fork-it) cover the rest.
 
-## Build
+## Security
 
-```sh
-gradle -p app :app:testDebugUnitTest :app:assembleDebug
-```
+Every request needs the bearer token. Treat the token like a password, and put Cloudflare Access in front of the API hostname if you can. The app talks only to `https://` addresses.
 
-Release builds need `app/keystore.properties` and a keystore. Neither is in this repository.
+## Licence
+
+MIT. See [LICENSE](LICENSE).

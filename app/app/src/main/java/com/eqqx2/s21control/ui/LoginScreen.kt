@@ -143,6 +143,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = url, onValueChange = { url = it },
                         label = { Text("Server URL") },
+                        placeholder = { Text("https://api.example.com") },
                         singleLine = true, colors = colors, textStyle = textStyle,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         modifier = Modifier.fillMaxWidth(),

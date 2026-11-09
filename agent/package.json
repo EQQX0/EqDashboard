@@ -1,7 +1,8 @@
 {
   "name": "s21-agent",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
+  "repository": "EQQX0/EqDashboard",
   "main": "server.js",
   "scripts": { "start": "node server.js", "test": "node --test" }
 }

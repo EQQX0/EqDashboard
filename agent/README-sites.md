@@ -9,7 +9,7 @@ Two servers run in the one process: the authenticated agent API (`PORT`, 8787) a
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `SITES_PORT` | `8790` | Local port of the public site server |
-| `SITES_DOMAIN` | `eqqx2.com` | Sites are served at `<name>.<SITES_DOMAIN>` |
+| `SITES_DOMAIN` | none | Your domain. Sites are served at `<name>.<SITES_DOMAIN>`. Sites stay off until you set it |
 | `SITE_ZIP_MAX_BYTES` | `524288000` | Largest zip accepted by deploy |
 | `DATA_DIR` | `agent/data` | Holds `sites.json` (metadata) and `tmp/` |
 
@@ -31,8 +31,8 @@ Site behaviour: directories serve `index.html`, `404.html` is used if present, a
 ## One-time wildcard routing (run on the phone)
 
 ```sh
-sed -i '/^  - service: http_status:404/i\  - hostname: "*.eqqx2.com"\n    service: http://127.0.0.1:8790' ~/.cloudflared/config.yml
-cloudflared tunnel route dns s21 "*.eqqx2.com"
+sed -i '/^  - service: http_status:404/i\  - hostname: "*.yourdomain.com"\n    service: http://127.0.0.1:8790' ~/.cloudflared/config.yml
+cloudflared tunnel route dns s21 "*.yourdomain.com"
 ```
 
 Then restart cloudflared:
@@ -41,4 +41,4 @@ Then restart cloudflared:
 pkill cloudflared; nohup cloudflared tunnel run s21 >> ~/cloudflared.log 2>&1 &
 ```
 
-Explicit DNS records (api, gym, downloader, files, www, apex) keep winning over the wildcard. The free Cloudflare certificate covers one label only: `blog.eqqx2.com` works, `a.b.eqqx2.com` does not.
+Explicit DNS records (api, gym, downloader, files, www, apex) keep winning over the wildcard. The free Cloudflare certificate covers one label only: `blog.yourdomain.com` works, `a.b.yourdomain.com` does not.

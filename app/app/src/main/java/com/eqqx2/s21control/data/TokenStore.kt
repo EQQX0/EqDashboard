@@ -5,7 +5,8 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
-const val DEFAULT_BASE_URL = "https://api.eqqx2.com"
+/** No built-in server: the person signs in with their own address. */
+const val DEFAULT_BASE_URL = ""
 
 /** The token goes out with every call, so the server address must be https. */
 fun isHttpsUrl(s: String): Boolean = s.trim().startsWith("https://", ignoreCase = true)

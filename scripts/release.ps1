@@ -10,7 +10,7 @@ param(
     [Parameter(Mandatory = $true)][string]$VersionName,
     [Parameter(Mandatory = $true)][int]$VersionCode,
     [string]$Notes = "",
-    [string]$Repo = "EQQX0/EqDashboard",
+    [string]$Repo = "",
     [switch]$Publish
 )
 
@@ -22,6 +22,13 @@ $AppDir = Join-Path $Root "app"
 $Props = Join-Path $AppDir "gradle.properties"
 $Gradle = "C:\Android\gradle-8.10.2\bin\gradle.bat"
 $OutDir = Join-Path $ScriptDir "out"
+
+# The release repo is the one the app checks for updates (UPDATE_REPO in app/gradle.properties).
+if (-not $Repo) {
+    $m = Select-String -Path $Props -Pattern '^UPDATE_REPO=(\S+)' | Select-Object -First 1
+    if (-not $m) { throw "Set UPDATE_REPO=owner/name in $Props or pass -Repo" }
+    $Repo = $m.Matches[0].Groups[1].Value
+}
 
 if ($VersionName -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.]+)?$') { throw "VersionName must look like 1.2.3" }
 if ($VersionCode -lt 1) { throw "VersionCode must be a positive integer" }
