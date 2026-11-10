@@ -7,7 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const STATUS = {
-  bad_path: 400, not_found: 404, exists: 409, too_large: 413,
+  bad_path: 400, not_found: 404, exists: 409, busy: 409, too_large: 413,
   not_a_directory: 400, is_a_directory: 400, range_not_satisfiable: 416, internal: 500,
 };
 
@@ -188,10 +188,117 @@ function parseRange(header, size) {
 }
 
 // ---------------------------------------------------------------------------
+// Trash helpers. Entries live in FILES_ROOT/.trash as '<epoch ms>-<name>'; the original location of each is kept in
+// '.trash/.meta/<entry>.json' (written atomically). Entries without a sidecar (older deletes) still list and restore.
+// ---------------------------------------------------------------------------
+
+const TRASH_DAYS = Number(process.env.TRASH_DAYS || 30);
+const DAY = 86400000;
+const META_DIR = '.meta';
+
+const metaPath = (trash, id) => path.join(trash, META_DIR, id + '.json');
+
+// Real entries only: not the metadata folder, half-finished site deploys ('.staging-*') or other dotfiles.
+function isTrashEntryName(id) {
+  if (typeof id !== 'string' || id === '' || id.startsWith('.')) return false;
+  if (/[\/\\\0]/.test(id) || id.includes('..')) return false;
+  return Buffer.byteLength(id) <= 255;
+}
+
+const stripStamp = (id) => id.replace(/^\d{13}-/, '');
+
+async function writeMeta(trash, id, meta) {
+  const dir = path.join(trash, META_DIR);
+  await fsp.mkdir(dir, { recursive: true });
+  const tmpFile = path.join(dir, `.${crypto.randomBytes(6).toString('hex')}.tmp`);
+  try {
+    await fsp.writeFile(tmpFile, JSON.stringify(meta));
+    await fsp.rename(tmpFile, metaPath(trash, id));
+  } catch (e) {
+    await fsp.rm(tmpFile, { force: true }).catch(() => {});
+    throw e;
+  }
+}
+
+async function readMeta(trash, id) {
+  try {
+    const m = JSON.parse(await fsp.readFile(metaPath(trash, id), 'utf8'));
+    return m && typeof m === 'object' ? m : null;
+  } catch { return null; }
+}
+
+const META_MIN_AGE_MS = 60000;
+
+// Removes sidecars whose trash entry is gone, and leftover temp files. Anything younger than a minute is skipped: a
+// sidecar is written just before its entry is renamed in, and must not be swept in that gap.
+async function sweepOrphanMeta(trash, now = Date.now()) {
+  let metas;
+  try { metas = await fsp.readdir(path.join(trash, META_DIR)); } catch { return; }
+  for (const f of metas) {
+    const isMeta = f.endsWith('.json') && !f.startsWith('.');
+    if (isMeta && await statOrNull(path.join(trash, f.slice(0, -5)))) continue;
+    try {
+      const st = await fsp.lstat(path.join(trash, META_DIR, f));
+      if (now - st.mtimeMs < META_MIN_AGE_MS) continue;
+    } catch { continue; }
+    await fsp.rm(path.join(trash, META_DIR, f), { force: true }).catch(() => {});
+  }
+}
+
+// Renames src to dest; across devices (EXDEV) copies then removes the source. A failed copy removes the partial dest.
+async function moveEntry(src, dest, renameFn = fsp.rename) {
+  try {
+    await renameFn(src, dest);
+  } catch (e) {
+    if (!e || e.code !== 'EXDEV') throw e;
+    try {
+      await fsp.cp(src, dest, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
+    } catch (err) {
+      await fsp.rm(dest, { recursive: true, force: true }).catch(() => {});
+      throw err;
+    }
+    await fsp.rm(src, { recursive: true });
+  }
+}
+
+async function treeSize(p, depth = 0) {
+  let total = 0;
+  let ents;
+  try { ents = await fsp.readdir(p, { withFileTypes: true }); } catch { return 0; }
+  for (const e of ents) {
+    const q = path.join(p, e.name);
+    if (e.isDirectory()) { if (depth < 32) total += await treeSize(q, depth + 1); }
+    else { try { total += (await fsp.lstat(q)).size; } catch { /* gone */ } }
+  }
+  return total;
+}
+
+async function describeEntry(trash, id) {
+  const abs = path.join(trash, id);
+  const st = await fsp.lstat(abs);
+  const meta = await readMeta(trash, id);
+  const m = /^(\d{13})-/.exec(id);
+  const deletedAt = meta && Number.isFinite(meta.deletedAt) ? meta.deletedAt : m ? Number(m[1]) : Math.round(st.mtimeMs);
+  const isDir = st.isDirectory();
+  const item = {
+    id,
+    name: (meta && typeof meta.name === 'string' && meta.name) || stripStamp(id),
+    isDir,
+    size: isDir ? await treeSize(abs) : st.size,
+    deletedAt,
+    expiresAt: TRASH_DAYS > 0 ? deletedAt + TRASH_DAYS * DAY : null,
+  };
+  if (meta && typeof meta.originalPath === 'string' && meta.originalPath) item.originalPath = meta.originalPath;
+  return item;
+}
+
+// ---------------------------------------------------------------------------
 // Route factory
 // ---------------------------------------------------------------------------
 
-function createRoutes({ root, maxUploadBytes }) {
+function createRoutes({ root, maxUploadBytes, renameFn }) {
+  const mv = (a, b) => moveEntry(a, b, renameFn);
+  const restoring = new Set(); // trash ids being restored right now
   const ROOT = path.resolve(root);
   const MAX = Number(maxUploadBytes);
 
@@ -406,21 +513,126 @@ function createRoutes({ root, maxUploadBytes }) {
     sendJson(res, 200, { ok: true });
   });
 
+  // Moves abs into .trash with a sidecar holding its original location. Returns the new entry id.
+  async function moveToTrash(abs, segs) {
+    const trash = path.join(ROOT, '.trash');
+    await fsp.mkdir(trash, { recursive: true });
+    const now = Date.now();
+    const st = await statOrNull(abs);
+    const base = `${now}-${segs[segs.length - 1].slice(0, 100)}`; // short enough for any file name
+    for (let i = 0; ; i++) {
+      const id = i === 0 ? base : `${base}-${i}`;
+      const dest = path.join(trash, id);
+      if (await statOrNull(dest)) continue;
+      // Sidecar first, so an entry never sits in the trash without its original location.
+      await writeMeta(trash, id, { originalPath: segs.join('/'), name: segs[segs.length - 1], isDir: !!(st && st.isDirectory()), deletedAt: now });
+      try { await mv(abs, dest); } catch (e) { await fsp.rm(metaPath(trash, id), { force: true }).catch(() => {}); throw e; }
+      return id;
+    }
+  }
+
   const remove = wrap(async (req, res, url) => {
     const { segs, abs } = rp(url.searchParams.get('path') || '');
     if (segs.length === 0) throw E('bad_path');
     if (isSiteEntry(segs)) throw E('bad_path'); // sites are managed via /sites/*
     if (!(await statOrNull(abs))) throw E('not_found');
-    const trash = path.join(ROOT, '.trash');
-    await fsp.mkdir(trash, { recursive: true });
-    const base = `${Date.now()}-${segs[segs.length - 1].slice(0, 100)}`; // short enough for any file name
-    for (let i = 0; ; i++) {
-      const dest = path.join(trash, i === 0 ? base : `${base}-${i}`);
-      if (await statOrNull(dest)) continue;
-      await fsp.rename(abs, dest);
-      break;
-    }
+    await moveToTrash(abs, segs);
     sendJson(res, 200, { ok: true });
+  });
+
+  const trashDir = () => path.join(ROOT, '.trash');
+
+  const trashList = wrap(async (req, res) => {
+    const trash = trashDir();
+    let names;
+    try { names = await fsp.readdir(trash); } catch { names = []; }
+    const items = [];
+    for (const id of names) {
+      if (!isTrashEntryName(id)) continue;
+      try { items.push(await describeEntry(trash, id)); } catch { /* vanished: skip */ }
+    }
+    items.sort((a, b) => b.deletedAt - a.deletedAt || (a.id < b.id ? -1 : 1));
+    sendJson(res, 200, { days: TRASH_DAYS, items });
+  });
+
+  // Finds a trash entry by id. The id is a bare entry name, never a path.
+  async function entryFor(id) {
+    if (!isTrashEntryName(id)) throw E('bad_path');
+    const trash = trashDir();
+    const abs = path.join(trash, id);
+    if (!(await statOrNull(abs))) throw E('not_found');
+    return { trash, abs };
+  }
+
+  // body: {id, overwrite?, replaceType?}. A second restore of an id already in flight gives 'busy' (409).
+  // overwrite never deletes the existing target: it goes into the trash as a new entry and is put back if the
+  // restore fails. File over folder (or the reverse) is refused with 'exists' unless replaceType is true.
+  const trashRestore = wrap(async (req, res) => {
+    const body = await readJson(req);
+    if (typeof body.id === 'string' && restoring.has(body.id)) throw E('busy');
+    const { trash, abs } = await entryFor(body.id);
+    const id = body.id;
+    restoring.add(id);
+    try {
+      const meta = await readMeta(trash, id);
+      const name = (meta && typeof meta.name === 'string' && meta.name) || stripStamp(id);
+      let rel = null;
+      if (meta && typeof meta.originalPath === 'string') {
+        try {
+          const r = rp(meta.originalPath);
+          if (r.segs.length && !isSiteEntry(r.segs)) rel = r.rel;
+        } catch { /* unusable location: fall back to Restored/ */ }
+      }
+      if (!rel) rel = `Restored/${name.replace(/[\/\\\0:]/g, '_') || 'item'}`;
+      const to = rp(rel);
+      const existing = await statOrNull(to.abs);
+      if (existing) {
+        if (body.overwrite !== true) throw E('exists');
+        const src = await fsp.lstat(abs);
+        if (src.isDirectory() !== existing.isDirectory() && body.replaceType !== true) throw E('exists');
+      }
+      await fsp.mkdir(path.dirname(to.abs), { recursive: true });
+      resolveSafe(ROOT, to.rel); // re-verify after directory creation
+      let oldId = null;
+      if (existing) oldId = await moveToTrash(to.abs, to.segs);
+      try {
+        await mv(abs, to.abs);
+      } catch (e) {
+        if (oldId) {
+          try { await mv(path.join(trash, oldId), to.abs); await fsp.rm(metaPath(trash, oldId), { force: true }).catch(() => {}); } catch { /* old copy stays in the trash */ }
+        }
+        throw e;
+      }
+      await fsp.rm(metaPath(trash, id), { force: true }).catch(() => {});
+      sendJson(res, 200, { ok: true, path: to.rel });
+    } finally {
+      restoring.delete(id);
+    }
+  });
+
+  const trashDelete = wrap(async (req, res) => {
+    const body = await readJson(req);
+    const { trash, abs } = await entryFor(body.id);
+    await fsp.rm(abs, { recursive: true, force: true });
+    await fsp.rm(metaPath(trash, body.id), { force: true }).catch(() => {});
+    sendJson(res, 200, { ok: true });
+  });
+
+  const trashEmpty = wrap(async (req, res) => {
+    const trash = trashDir();
+    let names;
+    try { names = await fsp.readdir(trash); } catch { names = []; }
+    let removed = 0;
+    for (const id of names) {
+      if (!isTrashEntryName(id)) continue;
+      try {
+        await fsp.rm(path.join(trash, id), { recursive: true, force: true });
+        await fsp.rm(metaPath(trash, id), { force: true }).catch(() => {});
+        removed++;
+      } catch { /* busy: leave it */ }
+    }
+    await sweepOrphanMeta(trash);
+    sendJson(res, 200, { ok: true, removed });
   });
 
   return {
@@ -430,14 +642,15 @@ function createRoutes({ root, maxUploadBytes }) {
     'POST /files/mkdir': mkdir,
     'POST /files/rename': rename,
     'DELETE /files': remove,
+    'GET /files/trash': trashList,
+    'POST /files/trash/restore': trashRestore,
+    'POST /files/trash/delete': trashDelete,
+    'POST /files/trash/empty': trashEmpty,
   };
 }
 
 const FILES_ROOT = process.env.FILES_ROOT || path.join(os.homedir(), 'samsung-cloud');
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 5368709120);
-
-const TRASH_DAYS = Number(process.env.TRASH_DAYS || 30);
-const DAY = 86400000;
 
 // Removes trash entries older than maxAgeMs. Entries are named '<epoch ms>-<name>' (older ones fall back to their
 // modified time); half-finished site deploys ('.staging-*') go after a day. Returns how many were removed.
@@ -447,6 +660,7 @@ async function purgeTrash(root, maxAgeMs, now = Date.now()) {
   try { names = await fsp.readdir(trash); } catch { return 0; }
   let removed = 0;
   for (const name of names) {
+    if (name === META_DIR) continue; // sidecar folder, not an entry
     const p = path.join(trash, name);
     try {
       let age;
@@ -454,9 +668,14 @@ async function purgeTrash(root, maxAgeMs, now = Date.now()) {
       if (m) age = now - Number(m[1]);
       else age = now - (await fsp.lstat(p)).mtimeMs;
       const limit = name.startsWith('.staging-') ? Math.min(maxAgeMs, DAY) : maxAgeMs;
-      if (age >= limit) { await fsp.rm(p, { recursive: true, force: true }); removed++; }
+      if (age >= limit) {
+        await fsp.rm(p, { recursive: true, force: true });
+        await fsp.rm(metaPath(trash, name), { force: true }).catch(() => {});
+        removed++;
+      }
     } catch { /* vanished or busy: try again next time */ }
   }
+  await sweepOrphanMeta(trash, now);
   return removed;
 }
 
@@ -477,6 +696,8 @@ module.exports = {
   validName,
   parseRange,
   purgeTrash,
+  sweepOrphanMeta,
+  moveEntry,
   init,
   FILES_ROOT,
   MAX_UPLOAD_BYTES,

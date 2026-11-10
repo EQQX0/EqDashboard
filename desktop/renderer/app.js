@@ -27,6 +27,8 @@ const ICONS = {
   memory: 'M15 9H9v6h6V9zm-2 4h-2v-2h2v2zM3 3v18h18V3H3zm16 16H5V5h14v14z',
   battery: 'M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z',
   clock: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z',
+  trash: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
+  back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
   logout: 'M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z',
 };
 function icon(name) {
@@ -50,11 +52,78 @@ function fmtDur(s) {
   return d ? `${d}d ${hh}h` : hh ? `${hh}h ${m}m` : `${m}m`;
 }
 
-let toastTimer;
-function toast(msg) {
-  const t = $('toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+// Toast stack: toast(msg) is an info toast, toast(msg, 'success' | 'error') picks the kind.
+// Queue rules (coalescing, max 3, durations) live in toast-logic.js; this part only touches the DOM.
+const TOAST_ICONS = {
+  success: ['M20 6 9 17l-5-5'],
+  error: ['M12 8v4', 'M12 16h.01', 'M12 3 2 20h20L12 3z'],
+  info: ['M12 16v-4', 'M12 8h.01', 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z'],
+  close: ['M18 6 6 18', 'M6 6l12 12'],
+};
+function toastSvg(name) {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true');
+  for (const d of TOAST_ICONS[name]) {
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d); s.append(p);
+  }
+  return s;
 }
+const toasts = new Map(); // id -> { el, timer, remaining, started, hover, focus }
+let toastList = [], toastSeq = 0;
+const toastDeps = { setTimeout: (f, ms) => setTimeout(f, ms), clearTimeout: (x) => clearTimeout(x), now: () => Date.now() };
+function toastArm(t, id) { ToastLogic.armToast(t, () => dismissToast(id), toastDeps); }
+function toastPause(t) { ToastLogic.pauseToast(t, toastDeps); }
+function dismissToast(id) {
+  const t = toasts.get(id);
+  if (!t) return;
+  toasts.delete(id); clearTimeout(t.timer);
+  toastList = ToastLogic.removeToast(toastList, id);
+  t.el.classList.add('out'); t.el.classList.remove('in');
+  // Timeout, not transitionend: with reduced motion no transition runs and the event never fires.
+  setTimeout(() => t.el.remove(), 160);
+}
+function toast(msg, kind) {
+  msg = String(msg);
+  const id = ++toastSeq;
+  const r = ToastLogic.pushToast(toastList, { id, msg, kind });
+  toastList = r.list;
+  if (r.coalesced != null) { // same message again: keep the toast, restart its timer
+    const t = toasts.get(r.coalesced);
+    if (t) { t.remaining = ToastLogic.durationFor(t.kind); toastArm(t, r.coalesced); }
+    return;
+  }
+  const k = ToastLogic.normKind(kind);
+  const x = h('button', { class: 'toast-x', type: 'button', 'aria-label': 'Dismiss' }, toastSvg('close'));
+  const el = h('div', { class: 'toast ' + k, role: k === 'error' ? 'alert' : null },
+    h('span', { class: 'toast-ic' }, toastSvg(k)), h('p', { class: 'toast-msg' }, msg), x);
+  const t = { el, kind: k, timer: null, remaining: ToastLogic.durationFor(k), started: 0, hover: false, focus: false };
+  toasts.set(id, t);
+  x.addEventListener('click', () => dismissToast(id));
+  el.addEventListener('mouseenter', () => { t.hover = true; toastPause(t); });
+  el.addEventListener('mouseleave', () => { t.hover = false; toastArm(t, id); });
+  el.addEventListener('focusin', () => { t.focus = true; toastPause(t); });
+  el.addEventListener('focusout', (e) => { if (!el.contains(e.relatedTarget)) { t.focus = false; toastArm(t, id); } });
+  $('toasts').append(el);
+  void el.offsetWidth; // commit the start state so the enter transition runs
+  el.classList.add('in');
+  toastArm(t, id);
+  for (const old of r.dropped) dismissToast(old);
+}
+// Escape closes the newest toast, unless a dialog is open (it owns Escape) or something already handled the key.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('dialog[open]')) return;
+  const id = ToastLogic.newestId(toastList);
+  if (id != null) dismissToast(id);
+});
+
+// The toast stack is a manual popover, so it lives in the top layer. Showing it again puts it above any dialog opened since.
+function raiseToasts() {
+  const el = $('toasts');
+  if (!el || typeof el.showPopover !== 'function') return;
+  try { if (el.matches(':popover-open')) el.hidePopover(); el.showPopover(); } catch {}
+}
+raiseToasts();
 
 async function call(req) {
   const r = await window.samsung.api(req);
@@ -64,7 +133,7 @@ async function call(req) {
 }
 // Run an action, show errors as toasts, then redraw.
 async function act(fn, okMsg) {
-  try { await fn(); if (okMsg) toast(okMsg); } catch (e) { toast(e.message); }
+  try { await fn(); if (okMsg) toast(okMsg, 'success'); } catch (e) { toast(e.message, 'error'); }
   load();
 }
 // Dark glass stat card: title + gradient icon tile, monospace value, hint, optional usage bar.
@@ -87,6 +156,7 @@ function openDialog(title, ...kids) {
   const dlg = h('dialog', { class: 'glass modal', 'aria-label': title }, h('h3', {}, title), ...kids);
   dlg.addEventListener('close', () => dlg.remove());
   document.body.append(dlg); dlg.showModal();
+  raiseToasts(); // the toast layer was opened earlier, so it sits under this dialog until it is re-shown
   return dlg;
 }
 function newSiteDialog(domain) {
@@ -116,7 +186,7 @@ function newSiteDialog(domain) {
     create.disabled = true; create.textContent = 'Creating...';
     try {
       await call({ method: 'POST', path: 'sites/create', body: { name, spa: spa.checked } });
-      dlg.close(); toast(`Created ${name}.${domain}`); load();
+      dlg.close(); toast(`Created ${name}.${domain}`, 'success'); load();
     } catch (e) {
       err.textContent = SL.siteErrorText(e.message, 'Could not create the site');
       create.disabled = false; create.textContent = 'Create'; input.focus();
@@ -154,7 +224,7 @@ function secretDialog(title, text, secret) {
   const dlg = openDialog(title, h('p', { class: 'muted' }, text), box,
     h('div', { class: 'toolbar', style: 'margin-top:16px;justify-content:flex-end' }, copy, done));
   copy.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(secret); toast('Copied'); } catch { box.select(); toast('Select the text and copy it'); }
+    try { await navigator.clipboard.writeText(secret); toast('Copied', 'success'); } catch { box.select(); toast('Select the text and copy it'); }
   });
   done.addEventListener('click', () => dlg.close());
   box.select();
@@ -211,7 +281,7 @@ function newVpsDialog(distros) {
       } catch (e) { throw new Error(ML.vpsErrorText(e.message, 'Could not create the slice')); }
       dlg.close(); load();
       if (r.password) secretDialog('Root password', `Save it now, it is shown once. ${n} is being set up and starts by itself.`, r.password);
-      else toast(`${n} is being set up. Log in with your SSH key`);
+      else toast(`${n} is being set up. Log in with your SSH key`, 'success');
     },
   });
 }
@@ -229,7 +299,7 @@ function addPcDialog() {
       const body = { name: name.input.value.trim(), mac: ML.normMac(mac.input.value), ip: ip.input.value.trim(), sshUser: user.input.value.trim() };
       if (port.input.value.trim()) body.sshPort = Number(port.input.value.trim());
       try { await call({ method: 'POST', path: 'pc/add', body }); } catch (e) { throw new Error(ML.pcErrorText(e.message, 'Could not add the PC')); }
-      dlg.close(); toast(`Added ${body.name}`); load();
+      dlg.close(); toast(`Added ${body.name}`, 'success'); load();
     },
   });
 }
@@ -241,7 +311,7 @@ function setUserDialog(p) {
     title: `Windows user for ${p.name || p.ip}`, label: 'Save', busy: 'Saving...', fields: [user],
     submit: async (dlg) => {
       try { await call({ method: 'POST', path: 'pc/user', body: { id: p.id, sshUser: user.input.value.trim() } }); } catch (e) { throw new Error(ML.pcErrorText(e.message, 'Could not save')); }
-      dlg.close(); toast('Windows user saved'); load();
+      dlg.close(); toast('Windows user saved', 'success'); load();
     },
   });
 }
@@ -259,7 +329,7 @@ function shutdownSetupDialog(p) {
   call({ method: 'POST', path: 'pc/key', body: {} }).then((r) => {
     text = r.key || ''; key.value = text || 'No key available'; copy.disabled = !text;
   }).catch((e) => { key.value = window.ManageLogic.pcErrorText(e.message, 'Could not get the key'); });
-  copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(text); toast('Key copied'); } catch { key.select(); toast('Select the text and copy it'); } });
+  copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(text); toast('Key copied', 'success'); } catch { key.select(); toast('Select the text and copy it'); } });
   user.addEventListener('click', () => { dlg.close(); setUserDialog(p); });
   done.addEventListener('click', () => dlg.close());
 }
@@ -272,7 +342,7 @@ function lightsDialog(p) {
     title: `Lights for ${p.name || p.ip}`, label: 'Save', busy: 'Saving...', fields: [url],
     submit: async (dlg) => {
       try { await call({ method: 'POST', path: 'pc/lights', body: { id: p.id, url: url.input.value.trim() } }); } catch (e) { throw new Error(ML.pcErrorText(e.message, 'Could not save')); }
-      dlg.close(); toast(url.input.value.trim() ? 'Lights link saved' : 'Lights link removed'); load();
+      dlg.close(); toast(url.input.value.trim() ? 'Lights link saved' : 'Lights link removed', 'success'); load();
     },
   });
 }
@@ -285,7 +355,7 @@ function renameDialog(dir, entry) {
     title: `Rename ${entry.name}`, label: 'Rename', busy: 'Renaming...', fields: [name],
     submit: async (d) => {
       try { await call({ method: 'POST', path: 'files/rename', body: { from: ML.joinPath(dir, entry.name), to: ML.joinPath(dir, name.input.value) } }); } catch (e) { throw new Error(ML.filesErrorText(e.message, 'Could not rename')); }
-      d.close(); toast('Renamed'); load();
+      d.close(); toast('Renamed', 'success'); load();
     },
   });
   name.input.select();
@@ -326,17 +396,17 @@ function winUpdatePanel() {
     setState({ busy: 'check' });
     try {
       const r = await window.samsung.checkUpdate();
-      if (!r.ok) { setState({ error: r.error }); toast(r.error); return; }
+      if (!r.ok) { setState({ error: r.error }); toast(r.error, 'error'); return; }
       setState({ info: r });
-    } catch (e) { const m = 'Could not check for updates'; setState({ error: m }); toast(m); }
+    } catch (e) { const m = 'Could not check for updates'; setState({ error: m }); toast(m, 'error'); }
   };
   const install = async () => {
     setState({ busy: 'install', info });
     try {
       const r = await window.samsung.installUpdate();
-      if (!r.ok) { setState({ error: r.error, info }); toast(r.error); return; }
+      if (!r.ok) { setState({ error: r.error, info }); toast(r.error, 'error'); return; }
       setState({ done: 'Installer started. The app is closing...', info });
-    } catch (e) { const m = 'Update failed'; setState({ error: m, info }); toast(m); }
+    } catch (e) { const m = 'Update failed'; setState({ error: m, info }); toast(m, 'error'); }
   };
   const ask = () => confirmDialog(`Install version ${info.latest}?`,
     `The installer is downloaded (${fmtBytes(info.size)}), ${info.verified ? 'checked against its checksum' : 'but its checksum is not published, so it cannot be verified'}, and then started. This app closes while it installs.`,
@@ -388,6 +458,7 @@ const screens = {
   },
 
   async files() {
+    if (state.filesView === 'trash') return trashView();
     const ML = window.ManageLogic;
     const path = state.filesPath;
     const d = await call({ path: 'files/list', query: { path } });
@@ -396,20 +467,20 @@ const screens = {
     const mkFolder = () => {
       const n = mk.value.trim();
       const bad = ML.validateEntryName(n);
-      if (bad) { toast(bad); return; }
+      if (bad) { toast(bad, 'error'); return; }
       act(async () => { try { await call({ method: 'POST', path: 'files/mkdir', body: { path: ML.joinPath(path, n) } }); } catch (e) { throw new Error(ML.filesErrorText(e.message)); } }, 'Folder created');
     };
     const uploading = state.uploading;
     const upload = async () => {
       state.uploading = true; load();
-      let msg = '';
+      let msg = '', kind = 'error';
       try {
         const r = await window.samsung.uploadFile(path);
-        if (r.ok) msg = `Uploaded ${r.file} (${fmtBytes(r.size)})`;
+        if (r.ok) { msg = `Uploaded ${r.file} (${fmtBytes(r.size)})`; kind = 'success'; }
         else if (r.error !== 'cancelled') msg = ML.filesErrorText(r.error, 'Upload failed');
       } catch (e) { msg = String(e.message).replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
       state.uploading = false;
-      if (msg) toast(msg);
+      if (msg) toast(msg, kind);
       load();
     };
     const rows = (d.entries || []).map((e) => h('div', { class: 'row' },
@@ -424,14 +495,15 @@ const screens = {
       }) }, 'Save'),
       h('button', { class: 'btn', 'aria-label': `Rename ${e.name}`, onclick: () => renameDialog(path, e) }, 'Rename'),
       h('button', { class: 'btn danger', 'aria-label': `Delete ${e.name}`, onclick: () => confirmDialog(`Delete ${e.name}?`,
-        'It moves to the server trash folder, where it is kept for a while before it is removed for good.', 'Delete',
-        () => act(() => call({ method: 'DELETE', path: 'files', query: { path: ML.joinPath(path, e.name) } }), 'Deleted')) }, 'Delete')));
+        'It moves to the recycle bin (kept 30 days) and can be restored from there.', 'Move to recycle bin',
+        () => act(() => call({ method: 'DELETE', path: 'files', query: { path: ML.joinPath(path, e.name) } }), 'Moved to recycle bin (kept 30 days)')) }, 'Delete')));
     return h('div', { class: 'stack', style: 'display:grid;gap:14px' },
       h('div', { class: 'glass bar-tools appear' },
         h('div', { class: 'crumbs' }, '/' + path),
         h('div', { class: 'toolbar' },
           path ? h('button', { class: 'btn', onclick: () => { state.filesPath = up; load(); } }, 'Up') : null,
           h('button', { class: 'btn', type: 'button', disabled: !!uploading, onclick: upload }, uploading ? 'Uploading...' : 'Upload file'),
+          h('button', { class: 'btn with-ic', type: 'button', onclick: () => { state.filesView = 'trash'; load(); } }, icon('trash'), 'Recycle bin'),
           mk, h('button', { class: 'btn primary', onclick: mkFolder }, 'New folder')),
         uploading ? h('div', { class: 'meta' }, 'Uploading, keep this window open...') : null),
       rows.length ? panel(rows) : emptyPanel('This folder is empty', 'Upload a file or create a folder to get started.'));
@@ -486,18 +558,19 @@ const screens = {
             B('Open', { 'aria-label': `Open ${host} in browser` }, () => window.samsung.openUrl('https://' + host)),
             B('Check', { 'aria-label': `Check ${host} is reachable` }, () => act(async () => {
               const r = await call({ path: 'sites/check', query: { name: s.name } });
-              toast(r.reachable ? `Reachable (${r.status})` : `Not reachable${r.error ? ': ' + r.error : ''}`);
+              toast(r.reachable ? `Reachable (${r.status})` : `Not reachable${r.error ? ': ' + r.error : ''}`, r.reachable ? 'success' : 'error');
             })),
             B(busy ? 'Uploading...' : 'Deploy zip', { 'aria-label': `Deploy a zip to ${host}` }, async () => {
               state.deploying = s.name; load();
-              let msg = '';
+              let msg = '', kind = 'error';
               try {
                 const r = await window.samsung.deploySite(s.name);
+                if (r.ok) kind = 'success';
                 if (r.ok) msg = `Deployed ${r.data.files ?? ''} files${r.data.bytes != null ? ' (' + fmtBytes(r.data.bytes) + ')' : ''} to ${s.name}`.replace('Deployed  files', 'Deployed');
                 else if (r.error !== 'cancelled') msg = SL.siteErrorText(r.error, 'Deploy failed');
               } catch (e) { msg = SL.siteErrorText(String(e.message).replace(/^Error invoking remote method '[^']*': (Error: )?/, ''), 'Deploy failed'); }
               state.deploying = null;
-              if (msg) toast(msg);
+              if (msg) toast(msg, kind);
               load();
             }),
             B(s.enabled ? 'Turn off' : 'Turn on', { 'aria-label': `${s.enabled ? 'Turn off' : 'Turn on'} ${host}` },
@@ -588,12 +661,72 @@ const screens = {
   },
 };
 
+/* ---------- Recycle bin (Files sub-view) ---------- */
+function trashView() {
+  const TL = window.TrashLogic;
+  const box = h('div', { style: 'display:grid;gap:14px' });
+  const back = h('button', { class: 'btn with-ic touch', type: 'button', onclick: () => { state.filesView = 'files'; load(); } }, icon('back'), 'Back to Files');
+  const head = (note, extra) => h('div', { class: 'glass bar-tools appear' },
+    h('div', { class: 'toolbar' }, back, h('h2', { class: 'trash-title' }, 'Recycle bin'), extra || null),
+    h('p', { class: 'meta trash-note' }, note));
+  const restore = async (item, body) => {
+    const ML = window.ManageLogic;
+    try {
+      const r = await call({ method: 'POST', path: 'files/trash/restore', body: Object.assign({ id: item.id }, body) });
+      toast(`Restored to ${r.path}`, 'success');
+    } catch (e) {
+      if (e.message === 'exists' && !body) {
+        const kind = item.isDir ? 'folder' : 'file';
+        confirmDialog(`Replace existing ${kind}?`,
+          `A ${kind} named "${item.name}" already exists. Replacing it moves it to the recycle bin and restores this one.`, 'Replace', () => restore(item, { overwrite: true }));
+        return;
+      }
+      if (e.message === 'exists' && !body.replaceType) {
+        confirmDialog('Replace anyway?', 'One is a folder and the other a file. Replace anyway?', 'Replace', () => restore(item, { overwrite: true, replaceType: true }));
+        return;
+      }
+      toast(ML.filesErrorText(e.message, 'Could not restore'), 'error');
+    }
+    load();
+  };
+  const draw = async () => {
+    box.replaceChildren(head('Loading...'), h('div', { class: 'glass panel pad empty appear', role: 'status', 'aria-busy': 'true' },
+      h('h3', {}, 'Loading recycle bin...')));
+    let d;
+    try { d = await call({ path: 'files/trash' }); } catch (e) {
+      box.replaceChildren(head(''), h('div', { class: 'glass panel pad empty appear', role: 'alert' },
+        h('h3', {}, 'Could not load the recycle bin'), h('p', {}, e.message),
+        h('button', { class: 'btn primary touch', type: 'button', style: 'margin-top:12px', onclick: draw }, 'Try again')));
+      return;
+    }
+    const now = Date.now();
+    const items = (d.items || []).map((it) => TL.rowModel(it, now));
+    const rows = items.map((m) => h('div', { class: 'row trash-row' },
+      h('span', { class: 'file-ic' }, icon(m.isDir ? 'files' : 'fileDoc')),
+      h('div', { class: 'grow' },
+        h('div', { class: 'name', title: m.name }, m.name),
+        h('div', { class: 'meta' }, [m.size == null ? 'Folder' : fmtBytes(m.size), m.deletedText, m.folder ? 'from ' + m.folder : ''].filter(Boolean).join(' · ')),
+        h('div', { class: 'meta left' + (m.urgent ? ' urgent' : '') }, m.leftText)),
+      h('div', { class: 'actions' },
+        h('button', { class: 'btn touch', type: 'button', 'aria-label': `Restore ${m.name}`, onclick: () => restore(m, null) }, 'Restore'),
+        h('button', { class: 'btn touch danger', type: 'button', 'aria-label': `Delete ${m.name} forever`, onclick: () => confirmDialog(`Delete ${m.name} forever?`,
+          'It is removed from the server for good. This cannot be undone.', 'Delete forever',
+          () => act(async () => { try { await call({ method: 'POST', path: 'files/trash/delete', body: { id: m.id } }); } catch (e) { throw new Error(window.ManageLogic.filesErrorText(e.message, 'Could not delete')); } }, 'Deleted forever')) }, 'Delete forever'))));
+    const emptyBtn = items.length ? h('button', { class: 'btn touch danger', type: 'button', style: 'margin-left:auto', onclick: () => confirmDialog('Empty the recycle bin?',
+      `All ${items.length} ${items.length === 1 ? 'item' : 'items'} will be deleted forever. This cannot be undone.`, 'Empty recycle bin',
+      () => act(async () => { let r; try { r = await call({ method: 'POST', path: 'files/trash/empty' }); } catch (e) { throw new Error(window.ManageLogic.filesErrorText(e.message, 'Could not empty the recycle bin')); } toast(`Removed ${r.removed ?? items.length} ${(r.removed ?? items.length) === 1 ? 'item' : 'items'} forever`, 'success'); })) }, 'Empty recycle bin') : null;
+    box.replaceChildren(head(TL.headerText(d.days), emptyBtn), items.length ? panel(rows) : emptyPanel('Recycle bin is empty', 'Files you delete in the Files tab show up here.'));
+  };
+  draw();
+  return box;
+}
+
 const TITLES = { overview: 'Overview', files: 'Files', downloads: 'Downloads', sites: 'Sites', vps: 'VPS', pc: 'My PC' };
 const SUBTITLES = {
   overview: 'Live status of your Samsung server', files: 'Browse and manage files on the server', downloads: 'Links, torrents and videos',
   sites: 'Websites hosted on the phone', vps: 'Linux slices you can SSH into', pc: 'Wake, shut down and light up your PCs',
 };
-const state = { tab: 'overview', filesPath: '', shown: null, lastOk: 0, deploying: null, uploading: false, agentUpdate: null, winUpdate: null, appVersion: '' };
+const state = { tab: 'overview', filesPath: '', filesView: 'files', shown: null, lastOk: 0, deploying: null, uploading: false, agentUpdate: null, winUpdate: null, appVersion: '' };
 let timer;
 
 function setChip(kind, text) {
@@ -659,8 +792,9 @@ async function boot() {
     let poll = setInterval(look, 3000);
     look();
     $('useFound').addEventListener('click', async () => {
+      $('foundErr').textContent = '';
       try { await window.samsung.usePair(); location.reload(); }
-      catch (e) { $('loginErr').textContent = e.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
+      catch (e) { $('foundErr').textContent = e.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
     });
     $('skipFound').addEventListener('click', () => { dismissed = true; $('found').hidden = true; $('manual').hidden = false; if (poll) { clearInterval(poll); poll = null; } });
     $('importBtn').addEventListener('click', async () => {

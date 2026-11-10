@@ -204,7 +204,7 @@ test('files API', async (t) => {
     assert.strictEqual(r.status, 200);
     assert.deepStrictEqual(r.json, { ok: true });
     assert.ok(!fs.existsSync(path.join(filesRoot, 'del.txt')));
-    const trashed = fs.readdirSync(path.join(filesRoot, '.trash'));
+    const trashed = fs.readdirSync(path.join(filesRoot, '.trash')).filter((n) => n !== '.meta');
     assert.strictEqual(trashed.length, 1);
     assert.match(trashed[0], /^\d+-del\.txt$/);
     assert.strictEqual(fs.readFileSync(path.join(filesRoot, '.trash', trashed[0]), 'utf8'), 'bye');

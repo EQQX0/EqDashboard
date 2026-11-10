@@ -166,13 +166,42 @@ input:focus,textarea:focus{border-color:var(--ink)}
 .found{margin:18px 0 4px;padding:14px;border-radius:18px;background:rgba(31,18,21,.07)}
 .found p{margin:0 0 12px;font-weight:600}
 
-/* Toast */
-#toast{position:fixed;right:20px;bottom:20px;max-width:380px;padding:12px 18px;border-radius:18px;color:#fff;
-  background:linear-gradient(var(--nav-fill),var(--nav-fill)),var(--nav-scrim);border:1px solid var(--glass-border);
-  backdrop-filter:blur(14px);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none}
-#toast.show{opacity:1;transform:none}
+/* Recycle bin */
+.btn.with-ic{display:inline-flex;align-items:center;gap:8px}
+.btn.with-ic svg{width:18px;height:18px;flex:none}
+.trash-title{margin:0 8px;font-size:20px;font-weight:600}
+.trash-note{margin:10px 0 0;font-size:14px}
+.trash-row{flex-wrap:wrap}
+.trash-row .actions{display:flex;flex-wrap:wrap;gap:8px}
+.trash-row .meta{white-space:normal}
+.trash-row .meta.left.urgent{color:var(--critical);font-weight:700}
+
+/* Toast: a manual popover, so it sits in the top layer above modal dialogs; only the toasts take pointer input */
+.toasts{position:fixed;inset:auto 20px 20px auto;margin:0;padding:0;border:0;background:none;color:inherit;overflow:visible;
+  z-index:20;width:min(380px,calc(100vw - 40px));
+  display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{--accent:var(--on-crimson);--chip-bg:var(--nav-fill);--chip-fg:var(--on-crimson);
+  position:relative;overflow:hidden;pointer-events:auto;display:flex;align-items:center;gap:10px;
+  padding:8px 8px 8px 14px;border-radius:18px;color:var(--on-crimson);
+  background:var(--chip-dark);border:1px solid var(--glass-border);
+  backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+  opacity:0;transform:translateY(8px);transition:opacity .18s ease-out,transform .18s ease-out}
+.toast::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+.toast.in{opacity:1;transform:none}
+.toast.out{opacity:0;transform:translateY(4px);transition-duration:.14s}
+.toast.success{--accent:var(--emerald);--chip-fg:var(--emerald);--chip-bg:color-mix(in srgb,var(--emerald) 18%,transparent)}
+.toast.error{--accent:var(--logo-red);--chip-fg:var(--chip-err-text);--chip-bg:var(--chip-err-fill)}
+.toast-ic{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:50%;background:var(--chip-bg);color:var(--chip-fg)}
+.toast-ic svg,.toast-x svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.toast-msg{flex:1;min-width:0;margin:0;font-size:14px;line-height:1.4;font-weight:500;overflow-wrap:anywhere}
+.toast-x{display:grid;place-items:center;flex:none;width:32px;height:32px;padding:0;border:0;border-radius:50%;
+  background:none;color:var(--on-crimson-muted);cursor:pointer;transition:background .2s,color .2s}
+.toast-x:hover{background:var(--nav-fill);color:var(--on-crimson)}
+.toast-x svg{width:16px;height:16px}
 
 @media (max-width:900px){.brand-name{display:none}.tab span{display:none}.tab{padding:0 12px}}
-@media (max-width:560px){main{padding:20px 16px 32px}h1{font-size:28px}.topbar{margin:8px 10px 0}.page-head .btn{display:none}}
+@media (max-width:560px){main{padding:20px 16px 32px}h1{font-size:28px}.topbar{margin:8px 10px 0}.page-head .btn{display:none}
+  .toasts{inset:auto 12px 12px 12px;width:auto}}
 @media (prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important}}
-@media (prefers-reduced-transparency:reduce){.topbar,#toast{backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media (prefers-reduced-transparency:reduce){.topbar,.toast{backdrop-filter:none;-webkit-backdrop-filter:none}.toast{background:var(--ink)}}

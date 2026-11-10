@@ -17,6 +17,9 @@ test('allowedPath accepts known routes and rejects traversal', () => {
   assert.ok(allowedPath('status'));
   assert.ok(allowedPath('files/list'));
   assert.ok(allowedPath('vps'));
+  for (const p of ['files/trash', 'files/trash/restore', 'files/trash/delete', 'files/trash/empty']) assert.ok(allowedPath(p), p);
+  assert.ok(!allowedPath('files/trash/other'));
+  assert.ok(!allowedPath('files/trash/../x'));
   assert.ok(allowedPath('agent/update'));
   assert.ok(allowedPath('tunnel/routes'));
   assert.ok(!allowedPath('agent/restart'));

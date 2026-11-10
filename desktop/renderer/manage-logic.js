@@ -124,7 +124,8 @@
   const FILE_ERRORS = {
     bad_path: 'That name or location is not allowed',
     exists: 'Something with that name already exists',
-    not_found: 'That item was not found',
+    not_found: 'That item was not found. It may already be gone',
+    busy: 'The server is busy with another change. Try again in a moment',
     too_large: 'Too big. Cloudflare allows 100 MB per upload',
     file_unreadable: 'Could not read that file',
     is_a_directory: 'That is a folder',

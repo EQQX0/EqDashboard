@@ -107,3 +107,12 @@ test('updateSummary words each state', () => {
   assert.match(M.updateSummary({ current: '1.0.0', latest: null }), /No agent release/);
   assert.strictEqual(M.updateSummary({}), 'Version unknown');
 });
+
+test('filesErrorText words bad_path, not_found, exists and busy', () => {
+  for (const c of ['bad_path', 'not_found', 'exists', 'busy']) {
+    const t = M.filesErrorText(c, 'x');
+    assert.notStrictEqual(t, c);
+    assert.notStrictEqual(t, 'x');
+  }
+  assert.strictEqual(M.filesErrorText('', 'Could not restore'), 'Could not restore');
+});

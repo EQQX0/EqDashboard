@@ -19,6 +19,7 @@
         <button class="btn primary" type="button" id="useFound">Sign in with this file</button>
         <button class="btn" type="button" id="skipFound">Enter manually</button>
       </div>
+      <p id="foundErr" class="err" role="alert"></p>
     </div>
     <div id="manual">
       <label for="url">Server URL</label>
@@ -50,9 +51,11 @@
     <div id="view"></div>
   </main>
 </div>
-<div id="toast" role="status" aria-live="polite"></div>
+<div id="toasts" class="toasts" popover="manual" role="status" aria-live="polite" aria-atomic="false"></div>
+<script src="toast-logic.js"></script>
 <script src="sites-logic.js"></script>
 <script src="manage-logic.js"></script>
+<script src="trash-logic.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 // Talks to the Samsung server agent. Pure Node (fetch), so it is testable without Electron.
 
 const ALLOWED = [
-  /^status$/, /^files\/(list|mkdir|rename|download|upload)$/, /^files$/,
+  /^status$/, /^files\/(list|mkdir|rename|download|upload)$/, /^files\/trash(\/(restore|delete|empty))?$/, /^files$/,
   /^downloads(\/(list|add|pause|resume))?$/, /^sites(\/(list|check|create|update|deploy))?$/,
   /^vps(\/(list|start|stop|create|password))?$/,
   /^pc(\/(list|wake|shutdown|add|user|lights|lights\/session|key))?$/, /^agent\/update$/,

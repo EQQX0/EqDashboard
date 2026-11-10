@@ -20,11 +20,20 @@ All `path` values are relative to `FILES_ROOT`, use `/`, and `""` or `/` means t
 - `POST /files/rename` with `{"from":"a/b.txt","to":"a/c.txt"}`.
 - `DELETE /files?path=` moves the item to `.trash`.
 
-Errors are `{"error":"<code>"}`: `bad_path` 400, `not_found` 404, `exists` 409, `too_large` 413, `not_a_directory` 400, `is_a_directory` 400, `internal` 500. A 416 carries `range_not_satisfiable`.
+Errors are `{"error":"<code>"}`: `bad_path` 400, `not_found` 404, `exists` 409, `busy` 409, `too_large` 413, `not_a_directory` 400, `is_a_directory` 400, `internal` 500. A 416 carries `range_not_satisfiable`.
 
 ## Deleting
 
-Delete never removes data. The item moves to `FILES_ROOT/.trash/<timestamp>-<name>`. Empty the trash by hand.
+Delete moves the item to `FILES_ROOT/.trash/<timestamp>-<name>` and records its original path in `.trash/.meta/<entry>.json`. Entries older than `TRASH_DAYS` (default 30) are purged at startup and every 6 hours, sidecars with them. Sidecars younger than 60 seconds are never swept.
+
+## Recycle bin
+
+Entries are addressed by `id` (the entry name in `.trash`), never by a path. Ids with separators, `..` or a leading dot give `bad_path`.
+
+- `GET /files/trash` returns `{"days":30,"items":[{"id","name","isDir","size","deletedAt","expiresAt","originalPath"}]}`, newest first. Times are epoch ms. `originalPath` is missing for entries deleted before the bin existed.
+- `POST /files/trash/restore` with `{"id":"...","overwrite":false,"replaceType":false}` moves the entry back and returns `{"ok":true,"path":"<restored path>"}`. Missing parent folders are recreated. A taken target gives `exists` (409) unless `overwrite` is true. With `overwrite` the existing target is not deleted: it moves into `.trash` as a new entry with its own sidecar, so it can be restored in turn, and it goes back if the restore fails. If one side is a folder and the other a file, `exists` is returned even with `overwrite` unless `replaceType` is also true. A restore of an id that is already being restored gives `busy` (409). Moves across devices fall back to copy then delete. Entries with no recorded path go to `Restored/<name>`. Unknown id: `not_found`.
+- `POST /files/trash/delete` with `{"id":"..."}` removes one entry for good.
+- `POST /files/trash/empty` removes every entry and returns `{"ok":true,"removed":<n>}`.
 
 ## Cloudflare limit
 
