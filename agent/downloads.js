@@ -14,9 +14,11 @@ const files = require('./files');
 
 const FILE_EXT = new Set([
   'zip', 'rar', '7z', 'gz', 'tgz', 'bz2', 'xz', 'tar', 'iso', 'img', 'apk', 'deb', 'rpm', 'exe', 'msi', 'dmg', 'pkg',
-  'pdf', 'epub', 'mobi', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'txt', 'json', 'bin',
-  'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'mp3', 'flac', 'wav', 'ogg', 'm4a', 'aac',
-  'mp4', 'mkv', 'webm', 'avi', 'mov', 'm4v', 'torrent',
+  'pdf', 'epub', 'mobi', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'rtf', 'csv', 'tsv',
+  'txt', 'md', 'log', 'json', 'xml', 'yml', 'yaml', 'bin',
+  'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tif', 'tiff', 'heic', 'avif',
+  'mp3', 'flac', 'wav', 'ogg', 'opus', 'wma', 'm4a', 'aac',
+  'mp4', 'mkv', 'webm', 'avi', 'mov', 'm4v', 'wmv', 'flv', 'torrent',
 ]);
 const MODES = new Set(['auto', 'direct', 'video', 'audio']);
 const ARIA_KEYS = ['gid', 'status', 'totalLength', 'completedLength', 'downloadSpeed', 'errorMessage', 'files', 'bittorrent', 'followedBy'];

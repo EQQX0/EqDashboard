@@ -110,6 +110,10 @@ test('chooseEngine routes by link type and mode', () => {
   assert.strictEqual(chooseEngine(s('https://x.com/f.torrent'), 'auto'), 'aria2');
   assert.strictEqual(chooseEngine(s('https://x.com/f.zip'), 'auto'), 'aria2');
   assert.strictEqual(chooseEngine(s('https://x.com/video.MP4'), 'auto'), 'aria2');
+  for (const f of ['README.md', 'notes.log', 'data.xml', 'conf.yaml', 'photo.heic', 'a.opus']) {
+    assert.strictEqual(chooseEngine(s('https://x.com/dir/' + f), 'auto'), 'aria2', f);
+  }
+  assert.strictEqual(chooseEngine(s('https://x.com/page.html'), 'auto'), 'ytdlp');
   assert.strictEqual(chooseEngine(s('https://youtube.com/watch?v=abc'), 'auto'), 'ytdlp');
   assert.strictEqual(chooseEngine(s('https://x.com/f.zip'), 'video'), 'ytdlp');
   assert.strictEqual(chooseEngine(s('https://x.com/f.zip'), 'audio'), 'ytdlp');
