@@ -9,35 +9,44 @@
 </head>
 <body>
 <section id="login" hidden>
-  <form id="loginForm" class="card login">
+  <form id="loginForm" class="glass login" novalidate>
+    <div class="logo" aria-hidden="true">S</div>
     <h1>Samsung Server</h1>
-    <p class="muted">Sign in to your own server.</p>
+    <p class="sub">Sign in to your server agent</p>
     <div id="found" class="found" hidden>
       <p id="foundText"></p>
       <div class="toolbar">
         <button class="btn primary" type="button" id="useFound">Sign in with this file</button>
         <button class="btn" type="button" id="skipFound">Enter manually</button>
       </div>
-    <label for="url">Server address</label>
-    <input id="url" type="url" placeholder="https://api.example.com" autocomplete="off" required>
-    <label for="token">Token</label>
-    <input id="token" type="password" autocomplete="off" required>
     </div>
-    <p id="loginErr" class="err" role="alert"></p>
-    <button class="btn primary" type="submit">Sign in</button>
-    <button class="btn" type="button" id="importBtn">Import pairing file</button>
+    <div id="manual">
+      <label for="url">Server URL</label>
+      <input id="url" type="url" placeholder="https://api.example.com" autocomplete="off" required>
+      <label for="token">Access token</label>
+      <input id="token" type="password" autocomplete="off" required>
+      <p id="loginErr" class="err" role="alert"></p>
+      <button class="btn primary wide" type="submit">Sign in</button>
+    </div>
+    <button class="btn wide" type="button" id="importBtn">Import pairing file</button>
   </form>
 </section>
 
 <div id="shell" hidden>
-  <nav id="nav" aria-label="Sections"></nav>
+  <header class="topbar">
+    <div class="brand"><span class="logo" aria-hidden="true">S</span><span class="brand-name">Samsung Server</span></div>
+    <nav id="nav" aria-label="Sections"></nav>
+    <button id="signout" class="tab" type="button"></button>
+  </header>
   <main>
-    <header>
-      <h2 id="title"></h2>
-      <span id="stamp" class="muted"></span>
-      <button id="refresh" class="btn">Refresh</button>
-    </header>
-    <p id="banner" class="err" role="alert" hidden></p>
+    <div class="page-head">
+      <div>
+        <h1 id="title"></h1>
+        <p id="subtitle" class="sub"></p>
+      </div>
+      <button id="refresh" class="btn light" type="button">Refresh</button>
+    </div>
+    <div class="chips"><span id="chip" class="chip"></span><span id="banner" class="chip bad" role="alert" hidden></span></div>
     <div id="view"></div>
   </main>
 </div>

@@ -35,7 +35,7 @@ const api = createApi({ getConfig: () => readCfg() });
 function createWindow() {
   const win = new BrowserWindow({
     width: 1100, height: 760, minWidth: 760, minHeight: 520,
-    backgroundColor: '#0F172A', icon: path.join(__dirname, 'build', 'icon.png'), title: 'Samsung Server', autoHideMenuBar: true,
+    backgroundColor: '#B91C1C', icon: path.join(__dirname, 'build', 'icon.png'), title: 'Samsung Server', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
