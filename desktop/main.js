@@ -7,6 +7,7 @@ const Updater = require('./updater');
 const { createApi, normalizeBase, parsePair, httpErrorMessage } = require('./api');
 const { findPairFile } = require('./pairscan');
 const { allowedOpenHost } = require('./openurl');
+const { buildLightsUrl, sameOrigin } = require('./lights-url');
 const SitesLogic = require('./renderer/sites-logic');
 const ManageLogic = require('./renderer/manage-logic');
 
@@ -37,6 +38,9 @@ function writeCfg(baseUrl, token) {
 
 const api = createApi({ getConfig: () => readCfg() });
 
+let mainWin = null;
+let lightsWin = null;
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1100, height: 760, minWidth: 760, minHeight: 520,
@@ -46,6 +50,29 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  mainWin = win;
+  win.on('closed', () => { mainWin = null; });
+}
+
+// Modal child window for the EqRGB lights remote. No preload, its own session, and it can only stay on the lights origin.
+function openLightsWindow(url) {
+  const win = new BrowserWindow({
+    parent: mainWin || undefined, modal: !!mainWin, width: 420, height: 640, minWidth: 320, minHeight: 420, resizable: true,
+    title: 'Lights', autoHideMenuBar: true, backgroundColor: '#1A1013', show: false,
+    webPreferences: { partition: 'persist:lights', sandbox: true, contextIsolation: true, nodeIntegration: false },
+  });
+  win.setMenuBarVisibility(false);
+  const ses = win.webContents.session;
+  ses.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+  ses.setPermissionCheckHandler(() => false);
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (e, target) => { if (!sameOrigin(target, url)) e.preventDefault(); });
+  win.webContents.on('will-redirect', (e, target) => { if (!sameOrigin(target, url)) e.preventDefault(); });
+  win.on('page-title-updated', (e) => e.preventDefault());
+  win.once('ready-to-show', () => win.show());
+  win.on('closed', () => { lightsWin = null; });
+  win.loadURL(url);
+  lightsWin = win;
 }
 
 app.whenReady().then(() => {
@@ -129,15 +156,18 @@ app.whenReady().then(() => {
       return { ok: true, data, file: name, size: st.size };
     } catch (e) { return { ok: false, error: e.message, status: e.status || 0 }; }
   });
-  // Opens the EqRGB lights remote for a PC in the browser. The session path comes from the agent; only a path of the
-  // exact expected shape is appended to the saved server address.
+  // Opens the EqRGB lights remote for a PC in an in-app window. The renderer passes only the PC id; the session path comes
+  // from the agent and the URL is rebuilt here from the saved server address (see lights-url.js).
   ipcMain.handle('lights:open', async (_e, id) => {
     id = String(id || '');
     if (!/^[a-f0-9]{1,32}$/.test(id)) return { ok: false, error: 'not_found' };
+    if (lightsWin && !lightsWin.isDestroyed()) { if (lightsWin.isMinimized()) lightsWin.restore(); lightsWin.focus(); return { ok: true }; }
     try {
       const r = await api.call({ method: 'POST', path: 'pc/lights/session', body: { id } });
-      if (!/^\/pc\/lights\/r\/[a-f0-9]{32}\/$/.test(String(r.path))) return { ok: false, error: 'no_lights' };
-      await shell.openExternal(normalizeBase(readCfg().baseUrl) + r.path);
+      const url = buildLightsUrl(readCfg().baseUrl, String(r.path));
+      if (!url) return { ok: false, error: 'no_lights' };
+      if (lightsWin && !lightsWin.isDestroyed()) { lightsWin.focus(); return { ok: true }; }
+      openLightsWindow(url);
       return { ok: true };
     } catch (e) { return { ok: false, error: e.message, status: e.status || 0 }; }
   });

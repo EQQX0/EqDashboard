@@ -29,6 +29,7 @@ const ICONS = {
   clock: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z',
   trash: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
   back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
+  more: 'M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
   logout: 'M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z',
 };
 function icon(name) {
@@ -37,6 +38,49 @@ function icon(name) {
   const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   p.setAttribute('d', ICONS[name]); s.append(p);
   return s;
+}
+
+// Overflow menu for a card: an icon button that opens a small role=menu. Key handling lives in menu-logic.js.
+let menuSeq = 0;
+function moreMenu(label, items, onPick) {
+  const ML = window.MenuLogic;
+  const id = 'more-menu-' + (++menuSeq);
+  const btn = h('button', { class: 'btn icon-btn touch', type: 'button', 'aria-label': 'More options', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': id, title: `More options for ${label}` }, icon('more'));
+  const els = items.map((it) => h('button', { class: 'menu-item', type: 'button', role: 'menuitem', tabindex: '-1', 'data-id': it.id }, it.label));
+  const menu = h('div', { class: 'menu', id, role: 'menu', 'aria-label': `More options for ${label}`, hidden: true }, ...els);
+  const wrap = h('div', { class: 'menu-wrap' }, btn, menu);
+  let open = false;
+  const outside = (e) => { if (!wrap.contains(e.target)) close(false); };
+  const focusItem = (i) => { const el = els[(i + els.length) % els.length]; el.focus(); };
+  function show(index) {
+    open = true; menu.hidden = false; btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('pointerdown', outside, true);
+    focusItem(index);
+  }
+  function close(returnFocus) {
+    if (!open) return;
+    open = false; menu.hidden = true; btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('pointerdown', outside, true);
+    if (returnFocus) btn.focus();
+  }
+  btn.addEventListener('click', () => { if (open) close(true); else show(0); });
+  btn.addEventListener('keydown', (e) => {
+    const r = ML.triggerKey(e.key);
+    if (!r) return;
+    e.preventDefault();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || !open) show(r.index); else close(true);
+  });
+  menu.addEventListener('keydown', (e) => {
+    const r = ML.menuKey(e.key, els.indexOf(document.activeElement), els.length);
+    if (r.action === 'none') return;
+    if (r.action !== 'close' || r.returnFocus) e.preventDefault();
+    if (r.action === 'focus') focusItem(r.index);
+    else if (r.action === 'activate') els[r.index].click();
+    else close(r.returnFocus);
+  });
+  els.forEach((el, i) => el.addEventListener('click', () => { close(true); onPick(items[i].id); }));
+  wrap.addEventListener('focusout', (e) => { if (open && e.relatedTarget && !wrap.contains(e.relatedTarget)) close(false); });
+  return wrap;
 }
 
 function fmtBytes(n) {
@@ -642,17 +686,15 @@ const screens = {
           h('div', { class: 'meta' }, `${p.ip} · ${p.mac}${p.sshUser ? ' · user ' + p.sshUser : ''}`)),
         h('span', { class: 'pill ' + (p.online ? 'ok' : '') }, p.online ? 'online' : 'offline'),
         h('div', { class: 'actions' },
-          B('Turn on', { 'aria-label': `Turn on ${label}` }, () => pact(() => call({ method: 'POST', path: 'pc/wake', body: { id: p.id } }), 'Wake signal sent')),
+          B('Turn on', { class: 'btn touch primary', 'aria-label': `Turn on ${label}` }, () => pact(() => call({ method: 'POST', path: 'pc/wake', body: { id: p.id } }), 'Wake signal sent')),
           p.sshUser ? B('Shut down', { class: 'btn touch danger', 'aria-label': `Shut down ${label}` }, () => confirmDialog(`Shut down ${label}?`,
             'The PC shuts down now. Anything unsaved on it is lost.', 'Shut down',
             () => pact(() => call({ method: 'POST', path: 'pc/shutdown', body: { id: p.id } }), 'Shutdown sent'))) : null,
-          B(p.sshUser ? 'Shutdown setup' : 'Set up shutdown', { 'aria-label': `Shutdown setup for ${label}` }, () => shutdownSetupDialog(p)),
-          B('Windows user', { 'aria-label': `Set the Windows user for ${label}` }, () => setUserDialog(p)),
-          p.hasLights ? B('Open lights', { 'aria-label': `Open the lights remote for ${label}` }, () => pact(async () => {
+          p.hasLights ? B('Lights', { 'aria-label': `Open the lights remote for ${label}` }, () => pact(async () => {
             const r = await window.samsung.openLights(p.id);
             if (!r.ok) throw new Error(r.error);
           })) : null,
-          B(p.hasLights ? 'Lights link' : 'Set up lights', { 'aria-label': `Lights link for ${label}` }, () => lightsDialog(p))));
+          moreMenu(label, window.MenuLogic.menuItems(p), (id) => ({ shutdown: shutdownSetupDialog, user: setUserDialog, lights: lightsDialog })[id](p))));
     });
     const head = h('div', { class: 'glass bar-tools appear' }, h('div', { class: 'toolbar' },
       h('div', { class: 'grow meta', style: 'flex:1' }, `${items.length} of ${d.maxPcs || 8} PCs`), addBtn()));

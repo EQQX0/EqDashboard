@@ -1,7 +1,7 @@
 {
   "name": "samsung-server-desktop",
   "productName": "Samsung Server",
-  "version": "0.13.6",
+  "version": "0.13.7",
   "description": "Windows client for the Samsung home server",
   "main": "main.js",
   "author": "EQQX0",
@@ -27,6 +27,7 @@
       "api.js",
       "pairscan.js",
       "openurl.js",
+      "lights-url.js",
       "updater.js",
       "renderer/**/*",
       "build/icon.png"
