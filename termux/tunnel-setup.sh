@@ -19,22 +19,33 @@ tunnel_id() {
   echo "$id"
 }
 
-cloudflared tunnel login            # opens a URL: authorize it for your domain in a browser
-
-# Make the tunnel. If the name is taken by a tunnel from an earlier setup whose key file is not on this phone
-# (after a reinstall), nothing can use it, so delete it and make a new one. If its key IS here, leave it alone.
-if ! cloudflared tunnel create "$NAME"; then
-  OLD=$(tunnel_id)
-  if [ -n "$OLD" ] && [ -f "$HOME/.cloudflared/$OLD.json" ]; then
-    echo "Tunnel $NAME already exists with its key on this phone. Not touching it."; exit 1
-  fi
-  echo "Replacing the old $NAME tunnel (its key is not on this phone)"
-  cloudflared tunnel delete -f "$NAME"
-  cloudflared tunnel create "$NAME"
+# login refuses to run when cert.pem exists (and set -e would abort), so only log in when it is missing
+if [ ! -f "$HOME/.cloudflared/cert.pem" ]; then
+  cloudflared tunnel login            # opens a URL: authorize it for your domain in a browser
 fi
 
+# Reuse the tunnel if it already exists and its key file is on this phone.
 ID=$(tunnel_id)
+if [ -n "$ID" ] && [ -f "$HOME/.cloudflared/$ID.json" ]; then
+  echo "Tunnel $NAME already exists with its key on this phone. Reusing it ($ID)."
+else
+  # If the name is taken by a tunnel from an earlier setup whose key file is not on this phone
+  # (after a reinstall), nothing can use it, so delete it and make a new one.
+  if ! cloudflared tunnel create "$NAME"; then
+    OLD=$(tunnel_id)
+    if [ -n "$OLD" ] && [ -f "$HOME/.cloudflared/$OLD.json" ]; then
+      echo "Tunnel $NAME already exists with its key on this phone. Reusing it."
+    else
+      echo "Replacing the old $NAME tunnel (its key is not on this phone)"
+      cloudflared tunnel delete -f "$NAME"
+      cloudflared tunnel create "$NAME"
+    fi
+  fi
+  ID=$(tunnel_id)
+fi
+
 mkdir -p ~/.cloudflared
+if [ ! -f ~/.cloudflared/config.yml ]; then
 cat > ~/.cloudflared/config.yml <<EOF
 tunnel: $ID
 credentials-file: $HOME/.cloudflared/$ID.json
@@ -43,9 +54,17 @@ ingress:
     service: http://127.0.0.1:8787
   - service: http_status:404
 EOF
+else
+  echo "Keeping existing ~/.cloudflared/config.yml"
+fi
 
-# --overwrite-dns replaces an old api.<domain> record left from an earlier tunnel
-cloudflared tunnel route dns --overwrite-dns "$NAME" api.$DOMAIN
+DOCTOR="$HOME/samsung-server/agent/tunnel-doctor.js"
+if [ -f "$DOCTOR" ]; then
+  node "$DOCTOR" --domain "$DOMAIN" --fix-ingress --route || echo "tunnel-doctor found problems (see FIX: lines above); continuing"
+else
+  # --overwrite-dns replaces an old api.<domain> record left from an earlier tunnel
+  cloudflared tunnel route dns --overwrite-dns "$NAME" api.$DOMAIN
+fi
 
-echo "Test: cloudflared tunnel run $NAME"
+echo "Test: cloudflared tunnel --config ~/.cloudflared/config.yml run $ID"
 echo "Then: curl -H 'Authorization: Bearer <token>' https://api.$DOMAIN/status"

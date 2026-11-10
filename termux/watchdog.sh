@@ -29,5 +29,6 @@ esac
 # Tunnel: restart only if no cloudflared process exists.
 if ! pgrep -x cloudflared >/dev/null 2>&1; then
   log "cloudflared not running, restarting"
-  nohup cloudflared tunnel run >> "$HOME/cloudflared.log" 2>&1 &
+  CFG="$HOME/.cloudflared/config.yml"; TID=$(sed -n 's/^tunnel:[[:space:]]*//p' "$CFG" | tr -d "\"' \r")
+  nohup cloudflared tunnel --config "$CFG" run $TID >> "$HOME/cloudflared.log" 2>&1 &
 fi

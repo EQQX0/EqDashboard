@@ -18,7 +18,7 @@ Open Termux and paste this, with your own domain at the end:
 curl -fsSL https://raw.githubusercontent.com/EQQX0/EqDashboard/main/termux/install.sh | bash -s -- yourdomain.com
 ```
 
-It installs everything, links your domain (it prints a link to approve in a browser), sets the agent to start on boot, starts it, and prints your token and server address. It also saves a pairing file (`samsung-server.pair`) in the phone's Downloads folder: pick it with Import token file in the phone app, drop it in Downloads on a PC running the Windows app, or send it to another device with `termux-share`. Then do the two phone settings it lists and jump to [step 5](#5-install-the-app-and-sign-in). Leave the domain off to skip the Cloudflare part. Run it again any time to update. Steps 2 to 4 below are the same thing by hand.
+It installs everything, links your domain (it prints a link to approve in a browser), sets the agent to start on boot, starts it, and prints your token and server address. It also saves a pairing file at `~/storage/downloads/SamsungServer/samsung-server.pair` (Download/SamsungServer on the phone). The Android app finds it after a one-time folder grant, the Windows app scans the same folder, and `termux-share` sends it to another device. See [step 5](#5-install-the-app-and-sign-in). Then do the two phone settings it lists and jump to [step 5](#5-install-the-app-and-sign-in). Leave the domain off to skip the Cloudflare part. Run it again any time to update. Steps 2 to 4 below are the same thing by hand.
 
 ## 2. Put the agent on the phone
 
@@ -53,13 +53,15 @@ Start the agent and the tunnel, then test from another network (mobile data work
 
 ```sh
 cd ~/samsung-server/agent && nohup node server.js >> ~/samsung-server/agent.log 2>&1 &
-nohup cloudflared tunnel run >> ~/cloudflared.log 2>&1 &
+nohup cloudflared tunnel --config ~/.cloudflared/config.yml run <tunnel id> >> ~/cloudflared.log 2>&1 &
 curl -H "Authorization: Bearer $(cat ~/samsung-server/agent/.token)" https://api.yourdomain.com/status
 ```
 
 You should see JSON with CPU, memory and storage. Without the token the answer is 401.
 
-If a tunnel named `samsung-server` already exists, skip the script. Add a hostname to `~/.cloudflared/config.yml` and run `cloudflared tunnel route dns samsung-server api.yourdomain.com`.
+If a tunnel named `samsung-server` already exists, skip the script. Run `node ~/samsung-server/agent/tunnel-doctor.js --domain yourdomain.com --fix-ingress --route`. It adds the hostname to `~/.cloudflared/config.yml` and routes DNS for you.
+
+Find `<tunnel id>` in `~/.cloudflared/config.yml` or with `cloudflared tunnel list`.
 
 ## 4. Keep it running
 
@@ -82,12 +84,16 @@ Use only one boot script. Two scripts that both start Node or cloudflared fight 
 1. On the phone that will run the app, download `app.apk` from the [latest release](https://github.com/EQQX0/EqDashboard/releases/latest) and install it. Android asks you to allow installs from your browser.
 2. Enter `https://api.yourdomain.com` as the server URL and paste your token. Read it in Termux with `cat ~/samsung-server/agent/.token`.
 
-To skip typing the token, run this in Termux and import the file from the sign-in screen:
+To skip typing the token, create a pairing file in Termux (the installer already does this):
 
 ```sh
 cd ~/samsung-server/agent
 node pair.js --url https://api.yourdomain.com
 ```
+
+The file lands at `~/storage/downloads/SamsungServer/samsung-server.pair`.
+
+On Android, tap **Find pairing files automatically** on the sign-in screen and pick Download/SamsungServer once. After that the sign-in screen shows **Pairing file found** with a **Use it** button. The app never signs in without your tap. You can still pick a file with Import token file. The Windows app scans the same folder.
 
 Delete the file afterwards. Anyone who reads it controls your server. Details are in [agent/README-pair.md](../agent/README-pair.md).
 
@@ -99,7 +105,7 @@ The Overview screen now shows your phone.
 |---|---|
 | Files | Works at once. Files live in `~/samsung-cloud`. Set `FILES_ROOT` to move them. See [README-files](../agent/README-files.md). |
 | Downloads | Works once `setup.sh` has finished. See [README-downloads](../agent/README-downloads.md). |
-| Sites | Set `SITES_DOMAIN=yourdomain.com` before starting the agent, then add a wildcard hostname to the tunnel. Sites stay off until you set the domain. See [README-sites](../agent/README-sites.md). |
+| Sites | Set `SITES_DOMAIN=yourdomain.com` before starting the agent, then add a wildcard hostname to the tunnel (`node ~/samsung-server/agent/tunnel-doctor.js --domain yourdomain.com --fix-ingress --route` does the hostname and DNS). Sites stay off until you set the domain. See [README-sites](../agent/README-sites.md). |
 | VPS | Works at once. Each slice gets an SSH port from 2201. See [README-vps](../agent/README-vps.md). |
 | My PC | Add the PC's MAC and home network address in the app, then tap **Set up** for shutdown. The PC must be wired, with Wake-on-LAN on in its BIOS and network adapter. See [README-pc](../agent/README-pc.md). |
 | Lights | Needs the Windows app [EqRGB](https://github.com/EQQX0/EqRGB). Tap **Set up** on the PC card, choose **Also add EqRGB lights** and paste EqRGB's phone link. |
@@ -148,6 +154,14 @@ The script needs Gradle and the Android SDK. Edit the `$Gradle` path at the top 
 
 - **`CANNOT LINK EXECUTABLE "curl"` or git fails to start in Termux:** Termux is half-updated. Run `apt update && apt full-upgrade -y`, then run the installer again. The installer does this upgrade itself, but it can't run if `curl` is already broken and can't download it.
 - **401 from the tunnel:** the token is wrong or missing. Read `agent/.token` again.
-- **502 or 1033 from Cloudflare:** the agent or `cloudflared` is not running. Check `~/samsung-server/agent.log` and `~/cloudflared.log`.
+- **502 from Cloudflare:** the agent is down. Check `~/samsung-server/agent.log`, then restart it: `cd ~/samsung-server/agent && nohup node server.js >> ~/samsung-server/agent.log 2>&1 &`.
+- **404 from Cloudflare:** the hostname is missing from `~/.cloudflared/config.yml`. The installer repairs it. You can also run `node ~/samsung-server/agent/tunnel-doctor.js --domain yourdomain.com --fix-ingress`.
+- **530 or error 1033 from Cloudflare:** Cloudflare has no live connector for the tunnel that the `api` record points at. This happens even when `cloudflared` runs, because it may run a different tunnel. The apps show "Server unreachable (tunnel offline)". Run `node ~/samsung-server/agent/tunnel-doctor.js --probe`, then check the dashboard:
+  - DNS `api` must be one proxied CNAME to `<tunnel-id>.cfargotunnel.com`.
+  - The zone must exist in one Cloudflare account only and show Active. Remove a Pending copy.
+  - Remove any `api` public hostname or record that points at an old tunnel. Run `cloudflared tunnel delete <old>` only after you check nothing uses it.
+  - No Load Balancer or Worker route may cover `api`.
+  - If `cert.pem` belongs to another zone, run `mv ~/.cloudflared/cert.pem ~/.cloudflared/cert.pem.old && cloudflared tunnel login`.
+  - Start the tunnel with `cloudflared tunnel --config ~/.cloudflared/config.yml run <tunnel id>` and check `~/cloudflared.log`.
 - **The app says the server address must be https:** use the `https://` hostname from your tunnel. Plain `http://` is refused.
 - **The agent stops when the screen is off:** Termux battery use is not Unrestricted, or `termux-wake-lock` did not run.

@@ -1,6 +1,7 @@
 package com.eqqx2.samsungserver.ui
 
 import android.net.Uri
+import com.eqqx2.samsungserver.data.PairFolder
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -88,7 +89,15 @@ fun LoginScreen(
     busy: Boolean,
     onConnect: (url: String, token: String) -> Unit,
     onImport: (Uri) -> Unit,
+    foundHost: String? = null,
+    onUseFound: () -> Unit = {},
+    onDismissFound: () -> Unit = {},
+    folderGranted: Boolean = true,
+    onWatchFolder: (Uri) -> Unit = {},
 ) {
+    val treePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) onWatchFolder(uri)
+    }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImport(uri)
     }
@@ -122,6 +131,10 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (foundHost != null) {
+                FoundPairCard(foundHost, onUseFound, onDismissFound)
+                Spacer(Modifier.height(12.dp))
+            }
             GlassCard(Modifier.fillMaxWidth().appear()) {
                 Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     LogoTile(56.dp)
@@ -190,6 +203,20 @@ fun LoginScreen(
                         description = "Import token file from your device",
                         modifier = Modifier.fillMaxWidth(),
                     ) { picker.launch(PICK_TYPES) }
+                    if (!folderGranted) {
+                        Spacer(Modifier.height(12.dp))
+                        SecondaryPillButton(
+                            text = "Find pairing files automatically",
+                            enabled = !busy,
+                            description = "Grant access to the Download SamsungServer folder to find pairing files",
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { treePicker.launch(PairFolder.grantIntentInitialUri()) }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Android asks once for the Download/SamsungServer folder.",
+                            color = SamsungColors.OnGlassMuted, fontSize = 12.sp,
+                        )
+                    }
                 }
             }
         }

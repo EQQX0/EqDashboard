@@ -235,7 +235,7 @@ class FilesClient(http: OkHttpClient = OkHttpClient()) {
                     "bad_path" -> "That path is not valid"
                     "not_a_directory" -> "That is not a folder"
                     "is_a_directory" -> "That is a folder"
-                    else -> "Server returned HTTP ${resp.code}"
+                    else -> httpFailureText(resp.code, if (resp.code == 530) resp.peekBody(512).string() else null)
                 }
             )
         }

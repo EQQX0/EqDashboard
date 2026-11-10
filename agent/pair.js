@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 
 const FILE_NAME = 'samsung-server.pair';
+const SUBDIR = 'SamsungServer';
 
 function parseArgs(argv) {
   const out = { url: null, out: null, force: false, help: false };
@@ -38,7 +39,7 @@ function readToken(env, dir) {
 function defaultOut(home, cwd) {
   const dl = path.join(home, 'storage', 'downloads');
   return fs.existsSync(dl) && fs.statSync(dl).isDirectory()
-    ? path.join(dl, FILE_NAME)
+    ? path.join(dl, SUBDIR, FILE_NAME)
     : path.join(cwd, FILE_NAME);
 }
 
@@ -68,6 +69,7 @@ function run({ argv = [], env = process.env, home = os.homedir(), cwd = process.
   }
   const target = path.resolve(args.out || defaultOut(home, cwd));
   try {
+    if (!args.out) fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
     fs.writeFileSync(target, buildPairFile(url, token), { mode: 0o600, flag: args.force ? 'w' : 'wx' });
     try { fs.chmodSync(target, 0o600); } catch { /* not supported on this platform */ }
   } catch (e) {

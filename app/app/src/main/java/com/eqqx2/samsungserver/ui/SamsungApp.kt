@@ -69,6 +69,10 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.eqqx2.samsungserver.data.FoundPair
+import com.eqqx2.samsungserver.data.PairFolder
+import com.eqqx2.samsungserver.data.foundHost
 import com.eqqx2.samsungserver.data.PairResult
 import com.eqqx2.samsungserver.data.isPairFileName
 import com.eqqx2.samsungserver.data.parsePairFile
@@ -293,6 +297,27 @@ fun SamsungApp() {
             }
         }
 
+        var found by remember { mutableStateOf<FoundPair?>(null) }
+        var dismissed by remember { mutableStateOf(setOf<String>()) }
+        var folderGranted by remember { mutableStateOf(PairFolder.granted(context)) }
+        suspend fun rescan() {
+            folderGranted = PairFolder.granted(context)
+            found = if (folderGranted) PairFolder.scan(context) else null
+        }
+        LaunchedEffect(loggedIn) {
+            if (!loggedIn) rescan() else found = null
+        }
+        if (!loggedIn) {
+            LifecycleResumeEffect(Unit) {
+                val job = scope.launch { rescan() }
+                onPauseOrDispose { job.cancel() }
+            }
+        }
+        val foundNow = found
+        val foundHostShown = foundNow
+            ?.takeIf { !loggedIn && "${it.id}@${it.modified}" !in dismissed }
+            ?.let { foundHost(it.url).ifBlank { "Unknown server" } }
+
         Box(Modifier.fillMaxSize()) {
         Crossfade(targetState = loggedIn, animationSpec = if (reduce) snap() else tween(300), label = "auth") { isIn ->
         if (!isIn) {
@@ -303,6 +328,14 @@ fun SamsungApp() {
                 busy = busy,
                 onConnect = { url, token -> connect(url, token, null) },
                 onImport = { uri -> import(uri) },
+                foundHost = foundHostShown,
+                onUseFound = { foundNow?.let { import(Uri.parse(it.id)) } },
+                onDismissFound = { foundNow?.let { dismissed = dismissed + "${it.id}@${it.modified}" } },
+                folderGranted = folderGranted,
+                onWatchFolder = { uri ->
+                    PairFolder.onTreePicked(context, uri)
+                    scope.launch { rescan() }
+                },
             )
         } else {
             Shell(
@@ -327,7 +360,7 @@ fun SamsungApp() {
                             try { DocumentsContract.deleteDocument(context.contentResolver, picked) } catch (e: Exception) { false }
                         }
                         if (ok) importedUri = null
-                        else importMessage = "Couldn't delete it; remove it with: rm ~/storage/downloads/samsung-server.pair"
+                        else importMessage = "Couldn't delete it; remove it with: rm ~/storage/downloads/SamsungServer/samsung-server.pair"
                     }
                 },
                 onDismiss = { importedUri = null },

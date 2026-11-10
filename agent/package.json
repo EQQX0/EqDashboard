@@ -1,6 +1,6 @@
 {
   "name": "samsung-agent",
-  "version": "0.13.4",
+  "version": "0.13.5",
   "private": true,
   "repository": "EQQX0/EqDashboard",
   "main": "server.js",

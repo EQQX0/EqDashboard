@@ -36,9 +36,10 @@ bash "$DIR/termux/setup.sh"
 if [ -n "$DOMAIN" ]; then
   if [ -f "$HOME/.cloudflared/config.yml" ]; then
     echo "==> Tunnel config already exists, leaving it alone"
+    [ -f "$DIR/agent/tunnel-doctor.js" ] && node "$DIR/agent/tunnel-doctor.js" --domain "$DOMAIN" --fix-ingress --route || true
   else
     echo "==> Connecting $DOMAIN: open the link below in a browser and approve it"
-    bash "$DIR/termux/tunnel-setup.sh" "$DOMAIN"
+    bash "$DIR/termux/tunnel-setup.sh" "$DOMAIN" || echo "Tunnel setup did not finish; rerun: bash ~/samsung-server/termux/tunnel-setup.sh $DOMAIN"
   fi
 fi
 
@@ -52,6 +53,13 @@ else
   echo "You already have a boot script, so I left it. Make sure it starts the agent."
   START="$DIR/termux/start-all.example.sh"
 fi
+
+for f in "$HOME"/.termux/boot/*; do
+  [ -f "$f" ] || continue
+  if grep -Eq 'cloudflared[[:space:]]+tunnel[[:space:]]+run[[:space:]]*$' "$f" 2>/dev/null; then
+    echo "INFO: $f runs a bare 'cloudflared tunnel run'. Switch it to: cloudflared tunnel --config ~/.cloudflared/config.yml run <tunnel id>"
+  fi
+done
 
 echo "==> Starting the agent now"
 sh "$START"
@@ -67,6 +75,15 @@ else
 fi
 if [ -n "$DOMAIN" ]; then
   echo "Server address for the app: https://api.$DOMAIN"
+  if [ -f "$DIR/agent/tunnel-doctor.js" ]; then
+    if PROBE_OUT="$(node "$DIR/agent/tunnel-doctor.js" --domain "$DOMAIN" --probe 2>&1)"; then
+      echo "Public address works: https://api.$DOMAIN (401 without token = OK)"
+    else
+      echo "The phone side works but Cloudflare cannot reach it yet."
+      echo "$PROBE_OUT" | grep '^FIX:\|^PROBLEM:' || true
+      echo "rerun: node ~/samsung-server/agent/tunnel-doctor.js --domain $DOMAIN --probe"
+    fi
+  fi
   # A pairing file holds the address and token, so signing in is "pick this file" instead of typing.
   if [ -s "$DIR/agent/.token" ]; then
     if [ ! -d "$HOME/storage/downloads" ]; then
@@ -74,14 +91,15 @@ if [ -n "$DOMAIN" ]; then
       for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do [ -d "$HOME/storage/downloads" ] && break; sleep 1; done
     fi
     if [ -d "$HOME/storage/downloads" ]; then
-      PAIR="$HOME/storage/downloads/samsung-server.pair"; WHERE="it is in your Downloads folder"
+      mkdir -p "$HOME/storage/downloads/SamsungServer"
+      PAIR="$HOME/storage/downloads/SamsungServer/samsung-server.pair"; WHERE="it is in Downloads/SamsungServer"
     else
       PAIR="$HOME/samsung-server.pair"; WHERE="storage access was not allowed, so it is only in Termux: run termux-setup-storage, allow it, then rerun this installer to put it in Downloads"
     fi
     if (cd "$DIR/agent" && node pair.js --url "https://api.$DOMAIN" --out "$PAIR" --force >/dev/null); then
       echo
       echo "Pairing file: $PAIR"
-      echo " - Phone app: tap 'Import token file' on the sign-in screen and pick it ($WHERE)."
+      echo " - Phone app: tap 'Import token file' on the sign-in screen and pick it ($WHERE). The Android app also finds it by itself after you grant the SamsungServer folder once."
       echo " - Windows app: put the file in Downloads or Desktop and the app signs in by itself."
       echo " - Send it to another device: termux-share $PAIR"
       echo " - It holds your token, and other apps can read your Downloads folder, so it deletes itself in 30 minutes."

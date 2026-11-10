@@ -219,7 +219,7 @@ class PcClient(http: OkHttpClient = OkHttpClient()) {
             "unreachable" -> PcResult.Unreachable
             "ssh_missing" -> PcResult.SshMissing
             "send_failed" -> PcResult.SendFailed
-            else -> if (resp.code == 404) PcResult.NotFound else PcResult.Failure("Server returned HTTP ${resp.code}")
+            else -> if (resp.code == 404) PcResult.NotFound else PcResult.Failure(httpFailureText(resp.code, if (resp.code == 530) resp.peekBody(512).string() else null))
         }
     }
 }

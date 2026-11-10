@@ -95,7 +95,7 @@ class AgentUpdateClient(http: OkHttpClient = OkHttpClient()) {
             code == "not_found" -> AgentUpdateResult.Unsupported
             code == "busy" -> AgentUpdateResult.Busy
             code != null -> AgentUpdateResult.Refused(code)
-            else -> AgentUpdateResult.Failure("Server returned HTTP ${resp.code}")
+            else -> AgentUpdateResult.Failure(httpFailureText(resp.code, if (resp.code == 530) resp.peekBody(512).string() else null))
         }
     }
 }

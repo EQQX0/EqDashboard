@@ -47,7 +47,20 @@ test('prefers storage/downloads when it exists', () => {
   const s = setup();
   fs.mkdirSync(path.join(s.dir, 'storage', 'downloads'), { recursive: true });
   assert.strictEqual(s.call(['--url', 'https://api.example.com']), 0);
-  assert.ok(fs.existsSync(path.join(s.dir, 'storage', 'downloads', 'samsung-server.pair')));
+  const file = path.join(s.dir, 'storage', 'downloads', 'SamsungServer', 'samsung-server.pair');
+  assert.ok(fs.existsSync(file));
+  assert.ok(s.out.join('\n').includes('rm ' + file));
+  assert.ok(!fs.existsSync(path.join(s.dir, 'samsung-server.pair')));
+});
+
+test('defaultOut has no side effects and falls back to cwd', () => {
+  const s = setup();
+  const { defaultOut } = require('../pair');
+  assert.strictEqual(defaultOut(s.dir, s.dir), path.join(s.dir, 'samsung-server.pair'));
+  fs.mkdirSync(path.join(s.dir, 'storage', 'downloads'), { recursive: true });
+  const p = defaultOut(s.dir, s.dir);
+  assert.ok(p.endsWith(path.join('SamsungServer', 'samsung-server.pair')));
+  assert.ok(!fs.existsSync(path.dirname(p)));
 });
 
 test('custom url is written', () => {

@@ -2,7 +2,7 @@
 const { app, BrowserWindow, ipcMain, safeStorage, shell, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { createApi, normalizeBase, parsePair } = require('./api');
+const { createApi, normalizeBase, parsePair, httpErrorMessage } = require('./api');
 const { findPairFile } = require('./pairscan');
 
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -60,7 +60,7 @@ app.whenReady().then(() => {
     writeCfg(p.url, p.token);
     return { ok: true };
   });
-  const searchDirs = () => ['downloads', 'desktop', 'documents'].map((n) => app.getPath(n));
+  const searchDirs = () => [...['downloads', 'desktop', 'documents'].map((n) => app.getPath(n)), path.join(app.getPath('downloads'), 'SamsungServer')];
   // Only reports that a pairing file exists (never the token), so the screen can offer it as a choice.
   // The screen asks every few seconds; scanning three folders each time would stall the window, so reuse a recent answer.
   let scanAt = 0;
@@ -90,7 +90,7 @@ app.whenReady().then(() => {
     const url = new URL(normalizeBase(baseUrl) + '/files/download');
     url.searchParams.set('path', remotePath);
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok || !res.body) return { ok: false, error: `Server answered ${res.status}` };
+    if (!res.ok || !res.body) return { ok: false, error: httpErrorMessage(res.status, await res.text().catch(() => '')) };
     await require('stream/promises').pipeline(require('stream').Readable.fromWeb(res.body), fs.createWriteStream(r.filePath));
     shell.showItemInFolder(r.filePath);
     return { ok: true };

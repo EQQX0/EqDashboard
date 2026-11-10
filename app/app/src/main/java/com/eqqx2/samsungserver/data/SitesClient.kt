@@ -283,7 +283,7 @@ class SitesClient(http: OkHttpClient = OkHttpClient()) {
             code == "reserved_name" -> SitesResult.Reserved
             code == "bad_zip" -> SitesResult.BadZip
             code == "unsafe_zip" -> SitesResult.UnsafeZip
-            else -> SitesResult.Failure("Server returned HTTP ${resp.code}")
+            else -> SitesResult.Failure(httpFailureText(resp.code, if (resp.code == 530) resp.peekBody(512).string() else null))
         }
     }
 }

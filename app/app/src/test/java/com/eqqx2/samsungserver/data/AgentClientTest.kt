@@ -53,4 +53,14 @@ class AgentClientTest {
         server.enqueue(MockResponse().setBody("not json"))
         assertTrue(client.fetchStatus(url(), "x") is FetchResult.Failure)
     }
+
+    @Test
+    fun maps530ToTunnelOfflineMessage() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(530).setBody("error code: 1033"))
+        val r = client.fetchStatus(url(), "x")
+        assertTrue(r is FetchResult.Failure)
+        val msg = (r as FetchResult.Failure).message
+        assertTrue(msg, msg.contains("tunnel offline"))
+        assertTrue(msg, msg.contains("1033"))
+    }
 }

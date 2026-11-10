@@ -38,7 +38,7 @@ cloudflared tunnel route dns samsung-server "*.yourdomain.com"
 Then restart cloudflared:
 
 ```sh
-pkill cloudflared; nohup cloudflared tunnel run >> ~/cloudflared.log 2>&1 &
+pkill cloudflared; nohup cloudflared tunnel --config "$CFG" run $TID >> ~/cloudflared.log 2>&1 &
 ```
 
 Explicit DNS records (api, gym, downloader, files, www, apex) keep winning over the wildcard. The free Cloudflare certificate covers one label only: `blog.yourdomain.com` works, `a.b.yourdomain.com` does not.

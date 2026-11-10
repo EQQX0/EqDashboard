@@ -190,7 +190,7 @@ class VpsClient(http: OkHttpClient = OkHttpClient()) {
             "key_only" -> VpsResult.KeyOnly
             "engine_missing" -> VpsResult.EngineMissing
             "low_space" -> VpsResult.LowSpace(obj["freeBytes"]?.jsonPrimitive?.longOrNull)
-            else -> if (resp.code == 404) VpsResult.NotFound else VpsResult.Failure("Server returned HTTP ${resp.code}")
+            else -> if (resp.code == 404) VpsResult.NotFound else VpsResult.Failure(httpFailureText(resp.code, if (resp.code == 530) resp.peekBody(512).string() else null))
         }
     }
 }

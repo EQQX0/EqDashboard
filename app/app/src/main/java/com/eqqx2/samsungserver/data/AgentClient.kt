@@ -32,7 +32,7 @@ class AgentClient(private val http: OkHttpClient = OkHttpClient()) {
                     when {
                         resp.code == 401 -> FetchResult.Unauthorized
                         resp.code == 429 -> FetchResult.RateLimited
-                        !resp.isSuccessful -> FetchResult.Failure("Server returned HTTP ${resp.code}")
+                        !resp.isSuccessful -> FetchResult.Failure(httpFailureText(resp.code, if (resp.code == 530) resp.peekBody(512).string() else null))
                         else -> FetchResult.Ok(parseStatus(resp.body?.string().orEmpty()))
                     }
                 }

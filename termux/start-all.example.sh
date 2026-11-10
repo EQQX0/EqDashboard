@@ -8,6 +8,7 @@ stop_node_in "$HOME/samsung-server/agent"
 pkill cloudflared 2>/dev/null
 sleep 2
 (cd ~/samsung-server/agent && nohup node server.js >> ~/samsung-server/agent.log 2>&1 &)
-nohup cloudflared tunnel run >> ~/cloudflared.log 2>&1 &
+CFG="$HOME/.cloudflared/config.yml"; TID=$(sed -n 's/^tunnel:[[:space:]]*//p' "$CFG" | tr -d "\"' \r")
+nohup cloudflared tunnel --config "$CFG" run $TID >> ~/cloudflared.log 2>&1 &
 # Add your other services below, each started in a subshell with its own folder, e.g.:
 # (cd ~/gym/api && set -a && . ~/gym/.env && set +a && nohup node server.js >> ~/gym/api.log 2>&1 &)

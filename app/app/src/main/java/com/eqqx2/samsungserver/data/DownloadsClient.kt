@@ -179,7 +179,7 @@ class DownloadsClient(http: OkHttpClient = OkHttpClient()) {
             code == "low_space" -> DownloadsResult.LowSpace(obj["freeBytes"]?.jsonPrimitive?.longOrNull)
             code == "engine_error" -> DownloadsResult.EngineError
             resp.code == 404 || code == "not_found" -> DownloadsResult.NotFound
-            else -> DownloadsResult.Failure("Server returned HTTP ${resp.code}")
+            else -> DownloadsResult.Failure(httpFailureText(resp.code, if (resp.code == 530) resp.peekBody(512).string() else null))
         }
     }
 }

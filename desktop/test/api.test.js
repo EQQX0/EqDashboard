@@ -53,3 +53,9 @@ test('call maps 401 and refuses when signed out', async () => {
   await assert.rejects(out.call({ path: 'status' }), /Not signed in/);
   await assert.rejects(out.call({ path: 'agent/update' }), /not allowed/);
 });
+
+test('530 with error 1033 reports the tunnel as offline', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 530, text: async () => 'error code: 1033' });
+  const api = createApi({ getConfig: () => ({ baseUrl: 'https://api.example.com', token: 'a'.repeat(64) }), fetchImpl });
+  await assert.rejects(() => api.call({ path: 'status' }), (e) => /tunnel offline/.test(e.message) && /1033/.test(e.message) && e.status === 530);
+});

@@ -29,6 +29,14 @@ function allowedPath(p) {
   return typeof p === 'string' && !p.includes('..') && ALLOWED.some((re) => re.test(p));
 }
 
+function httpErrorMessage(status, text) {
+  if (status === 530) {
+    return 'Server unreachable (tunnel offline). Cloudflare has no live connection to your phone. On the phone run: node ~/samsung-server/agent/tunnel-doctor.js --probe'
+      + (/1033/.test(String(text || '')) ? ' (error 1033)' : '');
+  }
+  return `Server answered ${status}`;
+}
+
 function createApi({ getConfig, fetchImpl = fetch }) {
   async function call({ method = 'GET', path, query, body }) {
     if (!allowedPath(path)) throw new Error('Request not allowed');
@@ -47,7 +55,7 @@ function createApi({ getConfig, fetchImpl = fetch }) {
     if (!res.ok) {
       let code = '';
       try { code = JSON.parse(text).error || ''; } catch {}
-      const e = new Error(res.status === 401 ? 'Wrong token' : res.status === 429 ? 'Too many requests, wait a moment' : code || `Server answered ${res.status}`);
+      const e = new Error(res.status === 401 ? 'Wrong token' : res.status === 429 ? 'Too many requests, wait a moment' : code || httpErrorMessage(res.status, text));
       e.status = res.status;
       throw e;
     }
@@ -56,4 +64,4 @@ function createApi({ getConfig, fetchImpl = fetch }) {
   return { call };
 }
 
-module.exports = { createApi, normalizeBase, allowedPath, parsePair };
+module.exports = { createApi, normalizeBase, allowedPath, parsePair, httpErrorMessage };
