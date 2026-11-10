@@ -26,6 +26,8 @@
       "preload.js",
       "api.js",
       "pairscan.js",
+      "openurl.js",
+      "updater.js",
       "renderer/**/*",
       "build/icon.png"
     ],

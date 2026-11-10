@@ -2,9 +2,11 @@
 // Talks to the Samsung server agent. Pure Node (fetch), so it is testable without Electron.
 
 const ALLOWED = [
-  /^status$/, /^files\/(list|mkdir|rename|download)$/, /^files$/,
-  /^downloads(\/(list|add|pause|resume))?$/, /^sites(\/(list|check))?$/,
-  /^vps(\/(list|start|stop))?$/, /^pc(\/(list|wake|shutdown))?$/,
+  /^status$/, /^files\/(list|mkdir|rename|download|upload)$/, /^files$/,
+  /^downloads(\/(list|add|pause|resume))?$/, /^sites(\/(list|check|create|update|deploy))?$/,
+  /^vps(\/(list|start|stop|create|password))?$/,
+  /^pc(\/(list|wake|shutdown|add|user|lights|lights\/session|key))?$/, /^agent\/update$/,
+  /^tunnel\/routes$/,
 ];
 
 function normalizeBase(url) {
@@ -34,19 +36,30 @@ function httpErrorMessage(status, text) {
     return 'Server unreachable (tunnel offline). Cloudflare has no live connection to your phone. On the phone run: node ~/samsung-server/agent/tunnel-doctor.js --probe'
       + (/1033/.test(String(text || '')) ? ' (error 1033)' : '');
   }
+  if (status === 413) return 'File too large for the tunnel (100 MB max)';
   return `Server answered ${status}`;
 }
 
 function createApi({ getConfig, fetchImpl = fetch }) {
-  async function call({ method = 'GET', path, query, body }) {
+  // rawBody (Buffer) is sent as-is with contentType and a long timeout, for zip uploads. bodyStream (a Readable, with
+  // contentLength) does the same without holding a big file in memory. body stays JSON.
+  async function call({ method = 'GET', path, query, body, rawBody, bodyStream, contentLength, contentType = 'application/octet-stream' }) {
     if (!allowedPath(path)) throw new Error('Request not allowed');
     const { baseUrl, token } = getConfig();
     if (!baseUrl || !token) throw new Error('Not signed in');
     const url = new URL(normalizeBase(baseUrl) + '/' + path);
     for (const [k, v] of Object.entries(query || {})) url.searchParams.set(k, String(v));
     const headers = { Authorization: `Bearer ${token}` };
-    const init = { method, headers, signal: AbortSignal.timeout(20000) };
-    if (body !== undefined) {
+    const init = { method, headers, signal: AbortSignal.timeout(rawBody !== undefined || bodyStream ? (bodyStream ? 6 * 60 * 60 * 1000 : 10 * 60 * 1000) : 20000) };
+    if (bodyStream) {
+      headers['Content-Type'] = String(contentType);
+      if (Number.isSafeInteger(contentLength) && contentLength >= 0) headers['Content-Length'] = String(contentLength);
+      init.body = bodyStream;
+      init.duplex = 'half';
+    } else if (rawBody !== undefined) {
+      headers['Content-Type'] = String(contentType);
+      init.body = rawBody;
+    } else if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
       init.body = JSON.stringify(body);
     }

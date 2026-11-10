@@ -105,7 +105,7 @@ The Overview screen now shows your phone.
 |---|---|
 | Files | Works at once. Files live in `~/samsung-cloud`. Set `FILES_ROOT` to move them. See [README-files](../agent/README-files.md). |
 | Downloads | Works once `setup.sh` has finished. See [README-downloads](../agent/README-downloads.md). |
-| Sites | Set `SITES_DOMAIN=yourdomain.com` before starting the agent, then add a wildcard hostname to the tunnel (`node ~/samsung-server/agent/tunnel-doctor.js --domain yourdomain.com --fix-ingress --route` does the hostname and DNS). Sites stay off until you set the domain. See [README-sites](../agent/README-sites.md). |
+| Sites | Set `SITES_DOMAIN=yourdomain.com` before starting the agent, then add a wildcard hostname to the tunnel with the two commands in [README-sites](../agent/README-sites.md#one-time-wildcard-routing-run-on-the-phone). The tunnel doctor only handles `api.yourdomain.com`, not the wildcard. Sites stay off until you set the domain. See [README-sites](../agent/README-sites.md). |
 | VPS | Works at once. Each slice gets an SSH port from 2201. See [README-vps](../agent/README-vps.md). |
 | My PC | Add the PC's MAC and home network address in the app, then tap **Set up** for shutdown. The PC must be wired, with Wake-on-LAN on in its BIOS and network adapter. See [README-pc](../agent/README-pc.md). |
 | Lights | Needs the Windows app [EqRGB](https://github.com/EQQX0/EqRGB). Tap **Set up** on the PC card, choose **Also add EqRGB lights** and paste EqRGB's phone link. |

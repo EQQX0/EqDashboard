@@ -10,4 +10,10 @@ contextBridge.exposeInMainWorld('samsung', {
   signOut: () => ipcRenderer.invoke('cfg:clear'),
   api: (req) => ipcRenderer.invoke('api', req),
   saveFile: (p) => ipcRenderer.invoke('file:save', p),
+  deploySite: (name) => ipcRenderer.invoke('sites:deploy', name),
+  uploadFile: (dir) => ipcRenderer.invoke('files:upload', dir),
+  openLights: (id) => ipcRenderer.invoke('lights:open', id),
+  checkUpdate: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  openUrl:(u) => ipcRenderer.invoke('open:url', u),
 });

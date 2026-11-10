@@ -132,12 +132,26 @@ main{flex:1;width:100%;max-width:1100px;margin:0 auto;padding:28px 24px 40px}
 :focus-visible{outline:2px solid #fff;outline-offset:2px}
 .glass :focus-visible{outline-color:var(--ink)}
 
+/* Sites tab */
+.btn.touch{min-height:44px}
+.row.site{flex-wrap:wrap}
+.row.site .actions{display:flex;flex-wrap:wrap;gap:8px;flex-basis:100%}
+.btn[aria-pressed="true"]{background:var(--ink);color:#fff}
+dialog.modal{width:min(440px,calc(100vw - 32px));padding:22px;margin:auto;background:var(--glass);border:1px solid var(--glass-border)}
+dialog.modal::backdrop{background:rgba(0,0,0,.55)}
+dialog.modal h3{margin:0 0 8px;font-size:20px;font-weight:600}
+dialog.modal input:not([type=checkbox]),dialog.modal textarea,dialog.modal select{width:100%;box-sizing:border-box}
+dialog.modal textarea{padding:10px 14px;resize:vertical}
+.mono{font-family:var(--mono);font-size:13px}
+dialog.modal label.check{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:500;cursor:pointer}
+dialog.modal input[type=checkbox]{width:22px;min-height:22px;height:22px;flex:none}
+
 /* Forms */
 label{display:block;margin:14px 0 6px;color:var(--on-glass-muted);font-size:13px;font-weight:600}
-input,select{background:rgba(255,255,255,.65);color:var(--on-glass);border:1px solid rgba(31,18,21,.2);border-radius:14px;
+input,select,textarea{background:rgba(255,255,255,.65);color:var(--on-glass);border:1px solid rgba(31,18,21,.2);border-radius:14px;
   padding:0 14px;min-height:44px;min-width:0;font-size:15px}
 input::placeholder{color:#8a6b70}
-input:focus{border-color:var(--ink)}
+input:focus,textarea:focus{border-color:var(--ink)}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .toolbar input{flex:1;min-width:180px}
 .bar-tools{padding:14px 16px}

@@ -1,7 +1,11 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { createApi, normalizeBase, allowedPath, parsePair } = require('../api');
+const { createApi, normalizeBase, allowedPath, parsePair, httpErrorMessage } = require('../api');
+
+test('httpErrorMessage maps 413 to a clear message', () => {
+  assert.strictEqual(httpErrorMessage(413, ''), 'File too large for the tunnel (100 MB max)');
+});
 
 test('normalizeBase requires https and trims slashes', () => {
   assert.strictEqual(normalizeBase(' https://api.example.com/ '), 'https://api.example.com');
@@ -13,7 +17,9 @@ test('allowedPath accepts known routes and rejects traversal', () => {
   assert.ok(allowedPath('status'));
   assert.ok(allowedPath('files/list'));
   assert.ok(allowedPath('vps'));
-  assert.ok(!allowedPath('agent/update'));
+  assert.ok(allowedPath('agent/update'));
+  assert.ok(allowedPath('tunnel/routes'));
+  assert.ok(!allowedPath('agent/restart'));
   assert.ok(!allowedPath('files/../x'));
   assert.ok(!allowedPath(undefined));
 });
@@ -51,7 +57,7 @@ test('call maps 401 and refuses when signed out', async () => {
   await assert.rejects(bad.call({ path: 'status' }), /Wrong token/);
   const out = createApi({ getConfig: () => ({}) });
   await assert.rejects(out.call({ path: 'status' }), /Not signed in/);
-  await assert.rejects(out.call({ path: 'agent/update' }), /not allowed/);
+  await assert.rejects(out.call({ path: 'agent/restart' }), /not allowed/);
 });
 
 test('530 with error 1033 reports the tunnel as offline', async () => {

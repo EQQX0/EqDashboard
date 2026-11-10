@@ -81,6 +81,283 @@ function panel(...kids) { return h('div', { class: 'glass panel appear' }, ...ki
 function emptyPanel(title, text) { return h('div', { class: 'glass panel pad empty appear' }, h('h3', {}, title), h('p', {}, text)); }
 function empty(msg) { return emptyPanel('Not available', msg); }
 
+/* ---------- site dialogs ---------- */
+// A native <dialog> gives focus trapping and Escape for free. It lives on body so list redraws do not close it.
+function openDialog(title, ...kids) {
+  const dlg = h('dialog', { class: 'glass modal', 'aria-label': title }, h('h3', {}, title), ...kids);
+  dlg.addEventListener('close', () => dlg.remove());
+  document.body.append(dlg); dlg.showModal();
+  return dlg;
+}
+function newSiteDialog(domain) {
+  const SL = window.SitesLogic;
+  const input = h('input', { id: 'siteName', autocomplete: 'off', spellcheck: 'false', 'aria-describedby': 'siteHelp siteAddr', placeholder: 'my-blog' });
+  const spa = h('input', { type: 'checkbox', id: 'siteSpa' });
+  const err = h('div', { class: 'err', id: 'siteHelp', role: 'alert' });
+  const addr = h('div', { class: 'crumbs', id: 'siteAddr' }, 'Address: ' + SL.siteAddress('', domain));
+  const create = h('button', { class: 'btn primary touch', type: 'submit' }, 'Create');
+  const cancel = h('button', { class: 'btn touch', type: 'button' }, 'Cancel');
+  const form = h('form', {}, h('label', { for: 'siteName' }, 'Site name'), input, err, addr,
+    h('label', { class: 'check', for: 'siteSpa' }, spa, 'Single-page app (serve index.html for unknown paths)'),
+    h('div', { class: 'toolbar', style: 'margin-top:16px;justify-content:flex-end' }, cancel, create));
+  const dlg = openDialog('New site', form);
+  cancel.addEventListener('click', () => dlg.close());
+  let touched = false;
+  const refresh = () => {
+    const e = touched ? SL.validateSiteName(input.value) : '';
+    err.textContent = e; input.setAttribute('aria-invalid', e ? 'true' : 'false');
+    addr.textContent = 'Address: ' + SL.siteAddress(input.value, domain);
+  };
+  input.addEventListener('input', () => { touched = true; refresh(); });
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault(); touched = true;
+    const name = input.value.trim();
+    if (SL.validateSiteName(name)) { refresh(); input.focus(); return; }
+    create.disabled = true; create.textContent = 'Creating...';
+    try {
+      await call({ method: 'POST', path: 'sites/create', body: { name, spa: spa.checked } });
+      dlg.close(); toast(`Created ${name}.${domain}`); load();
+    } catch (e) {
+      err.textContent = SL.siteErrorText(e.message, 'Could not create the site');
+      create.disabled = false; create.textContent = 'Create'; input.focus();
+    }
+  });
+  input.focus();
+}
+function deleteSiteDialog(name, siteAct) {
+  const del = h('button', { class: 'btn primary touch', type: 'button' }, 'Move to trash');
+  const cancel = h('button', { class: 'btn touch', type: 'button' }, 'Cancel');
+  const dlg = openDialog(`Move ${name} to trash?`,
+    h('p', { class: 'muted' }, 'The site goes offline now. Its files are kept in the server trash folder, so they can be restored.'),
+    h('div', { class: 'toolbar', style: 'margin-top:16px;justify-content:flex-end' }, cancel, del));
+  cancel.addEventListener('click', () => dlg.close());
+  del.addEventListener('click', () => { dlg.close(); siteAct(() => call({ method: 'DELETE', path: 'sites', query: { name } }), `Moved ${name} to trash`); });
+  cancel.focus();
+}
+
+/* ---------- shared dialogs for Files, VPS and My PC ---------- */
+// Confirm before anything destructive. Cancel has the focus so Enter does not confirm by accident.
+function confirmDialog(title, text, label, onConfirm) {
+  const ok = h('button', { class: 'btn primary touch', type: 'button' }, label);
+  const cancel = h('button', { class: 'btn touch', type: 'button' }, 'Cancel');
+  const dlg = openDialog(title, h('p', { class: 'muted' }, text),
+    h('div', { class: 'toolbar', style: 'margin-top:16px;justify-content:flex-end' }, cancel, ok));
+  cancel.addEventListener('click', () => dlg.close());
+  ok.addEventListener('click', () => { dlg.close(); onConfirm(); });
+  cancel.focus();
+}
+// Shows a secret once (a new VPS password) with a Copy button.
+function secretDialog(title, text, secret) {
+  const box = h('input', { readonly: true, value: secret, 'aria-label': 'Password', class: 'mono', spellcheck: 'false' });
+  const copy = h('button', { class: 'btn touch', type: 'button' }, 'Copy');
+  const done = h('button', { class: 'btn primary touch', type: 'button' }, 'Done');
+  const dlg = openDialog(title, h('p', { class: 'muted' }, text), box,
+    h('div', { class: 'toolbar', style: 'margin-top:16px;justify-content:flex-end' }, copy, done));
+  copy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(secret); toast('Copied'); } catch { box.select(); toast('Select the text and copy it'); }
+  });
+  done.addEventListener('click', () => dlg.close());
+  box.select();
+}
+// A labelled field with its own error line. validate() returns '' or the message.
+function field(id, label, input, validate, help) {
+  input.id = id;
+  const err = h('div', { class: 'err', id: id + 'Err', role: 'alert' });
+  input.setAttribute('aria-describedby', id + 'Err');
+  const show = (on) => { const e = on ? validate(input.value) : ''; err.textContent = e; input.setAttribute('aria-invalid', e ? 'true' : 'false'); return e; };
+  input.addEventListener('input', () => { if (input.dataset.touched) show(true); });
+  input.addEventListener('blur', () => { input.dataset.touched = '1'; show(true); });
+  return {
+    el: h('div', {}, h('label', { for: id }, label), input, err, help ? h('div', { class: 'crumbs' }, help) : null),
+    check: () => { input.dataset.touched = '1'; return show(true); },
+    input,
+  };
+}
+// Builds a dialog around fields. submit(dlg) performs the request and throws an Error whose message is already worded.
+function formDialog({ title, intro, fields, label, busy, submit }) {
+  const formErr = h('div', { class: 'err', role: 'alert' });
+  const go = h('button', { class: 'btn primary touch', type: 'submit' }, label);
+  const cancel = h('button', { class: 'btn touch', type: 'button' }, 'Cancel');
+  const form = h('form', { novalidate: true }, intro ? h('p', { class: 'muted' }, intro) : null, ...fields.map((f) => f.el), formErr,
+    h('div', { class: 'toolbar', style: 'margin-top:16px;justify-content:flex-end' }, cancel, go));
+  const dlg = openDialog(title, form);
+  cancel.addEventListener('click', () => dlg.close());
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const bad = fields.filter((f) => f.check());
+    if (bad.length) { bad[0].input.focus(); return; }
+    go.disabled = true; go.textContent = busy; formErr.textContent = '';
+    try { await submit(dlg); } catch (e) { formErr.textContent = e.message; go.disabled = false; go.textContent = label; }
+  });
+  const first = fields.find((f) => f.input.tagName !== 'SELECT') || fields[0];
+  if (first) first.input.focus();
+  return dlg;
+}
+
+function newVpsDialog(distros) {
+  const ML = window.ManageLogic;
+  const list = distros && distros.length ? distros : [{ id: 'debian', label: 'Debian' }, { id: 'ubuntu', label: 'Ubuntu' }, { id: 'alpine', label: 'Alpine Linux' }];
+  const name = field('vpsName', 'Name', h('input', { autocomplete: 'off', spellcheck: 'false', placeholder: 'dev1' }), ML.validateVpsName);
+  const distro = field('vpsDistro', 'Linux', h('select', {}, list.map((d) => h('option', { value: d.id }, d.label || d.id))), () => '');
+  const key = field('vpsKey', 'SSH public key (optional)', h('textarea', { rows: '3', spellcheck: 'false', placeholder: 'ssh-ed25519 AAAA...' }), ML.validateSshKey,
+    'With a key the slice only accepts key logins. Leave it empty to get a password.');
+  formDialog({
+    title: 'New VPS slice', label: 'Create', busy: 'Creating...', fields: [name, distro, key],
+    submit: async (dlg) => {
+      const n = name.input.value.trim(), k = key.input.value.trim();
+      let r;
+      try {
+        r = await call({ method: 'POST', path: 'vps/create', body: Object.assign({ name: n, distro: distro.input.value }, k ? { sshKey: k } : {}) });
+      } catch (e) { throw new Error(ML.vpsErrorText(e.message, 'Could not create the slice')); }
+      dlg.close(); load();
+      if (r.password) secretDialog('Root password', `Save it now, it is shown once. ${n} is being set up and starts by itself.`, r.password);
+      else toast(`${n} is being set up. Log in with your SSH key`);
+    },
+  });
+}
+
+function addPcDialog() {
+  const ML = window.ManageLogic;
+  const name = field('pcName', 'Name', h('input', { autocomplete: 'off', placeholder: 'Gaming PC' }), ML.validatePcName);
+  const mac = field('pcMac', 'MAC address', h('input', { autocomplete: 'off', spellcheck: 'false', placeholder: 'AA:BB:CC:DD:EE:FF' }), ML.validateMac);
+  const ip = field('pcIp', 'Local IP address', h('input', { autocomplete: 'off', inputmode: 'decimal', placeholder: '192.168.1.20' }), ML.validateIp);
+  const user = field('pcUser', 'Windows user (optional, needed to shut down)', h('input', { autocomplete: 'off', spellcheck: 'false' }), (v) => ML.validatePcUser(v, false));
+  const port = field('pcPort', 'SSH port (optional)', h('input', { autocomplete: 'off', inputmode: 'numeric', placeholder: '22' }), ML.validatePort);
+  formDialog({
+    title: 'Add a PC', label: 'Add', busy: 'Adding...', fields: [name, mac, ip, user, port],
+    submit: async (dlg) => {
+      const body = { name: name.input.value.trim(), mac: ML.normMac(mac.input.value), ip: ip.input.value.trim(), sshUser: user.input.value.trim() };
+      if (port.input.value.trim()) body.sshPort = Number(port.input.value.trim());
+      try { await call({ method: 'POST', path: 'pc/add', body }); } catch (e) { throw new Error(ML.pcErrorText(e.message, 'Could not add the PC')); }
+      dlg.close(); toast(`Added ${body.name}`); load();
+    },
+  });
+}
+
+function setUserDialog(p) {
+  const ML = window.ManageLogic;
+  const user = field('pcUser', 'Windows user name', h('input', { autocomplete: 'off', spellcheck: 'false', value: p.sshUser || '' }), (v) => ML.validatePcUser(v, true));
+  formDialog({
+    title: `Windows user for ${p.name || p.ip}`, label: 'Save', busy: 'Saving...', fields: [user],
+    submit: async (dlg) => {
+      try { await call({ method: 'POST', path: 'pc/user', body: { id: p.id, sshUser: user.input.value.trim() } }); } catch (e) { throw new Error(ML.pcErrorText(e.message, 'Could not save')); }
+      dlg.close(); toast('Windows user saved'); load();
+    },
+  });
+}
+
+// Shutdown setup: the server's public SSH key goes into the PC's authorized_keys, then a Windows user is set.
+function shutdownSetupDialog(p) {
+  const key = h('textarea', { readonly: true, rows: '3', class: 'mono', 'aria-label': 'Server public key', spellcheck: 'false' }, 'Loading the server key...');
+  const copy = h('button', { class: 'btn touch', type: 'button', disabled: true }, 'Copy key');
+  const user = h('button', { class: 'btn touch', type: 'button' }, 'Set Windows user');
+  const done = h('button', { class: 'btn primary touch', type: 'button' }, 'Done');
+  const dlg = openDialog(`Shut down setup for ${p.name || p.ip}`,
+    h('p', { class: 'muted' }, "On the PC, turn on OpenSSH Server and add this key to the user's authorized_keys (for an administrator account: C:\\ProgramData\\ssh\\administrators_authorized_keys). Then set the Windows user here."),
+    key, h('div', { class: 'toolbar', style: 'margin-top:16px;justify-content:flex-end' }, copy, user, done));
+  let text = '';
+  call({ method: 'POST', path: 'pc/key', body: {} }).then((r) => {
+    text = r.key || ''; key.value = text || 'No key available'; copy.disabled = !text;
+  }).catch((e) => { key.value = window.ManageLogic.pcErrorText(e.message, 'Could not get the key'); });
+  copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(text); toast('Key copied'); } catch { key.select(); toast('Select the text and copy it'); } });
+  user.addEventListener('click', () => { dlg.close(); setUserDialog(p); });
+  done.addEventListener('click', () => dlg.close());
+}
+
+function lightsDialog(p) {
+  const ML = window.ManageLogic;
+  const url = field('pcLights', 'EqRGB phone-remote link', h('input', { autocomplete: 'off', spellcheck: 'false', placeholder: `http://${p.ip}:47822/?t=...` }), (v) => ML.validateLightsUrl(v, p.ip),
+    p.hasLights ? 'A link is saved. Paste a new one to replace it, or save it empty to remove it.' : 'Copy it from EqRGB on the PC.');
+  formDialog({
+    title: `Lights for ${p.name || p.ip}`, label: 'Save', busy: 'Saving...', fields: [url],
+    submit: async (dlg) => {
+      try { await call({ method: 'POST', path: 'pc/lights', body: { id: p.id, url: url.input.value.trim() } }); } catch (e) { throw new Error(ML.pcErrorText(e.message, 'Could not save')); }
+      dlg.close(); toast(url.input.value.trim() ? 'Lights link saved' : 'Lights link removed'); load();
+    },
+  });
+}
+
+function renameDialog(dir, entry) {
+  const ML = window.ManageLogic;
+  const name = field('renameTo', 'New name', h('input', { autocomplete: 'off', spellcheck: 'false', value: entry.name }),
+    (v) => ML.validateEntryName(v) || (v === entry.name ? 'Choose a different name' : ''));
+  formDialog({
+    title: `Rename ${entry.name}`, label: 'Rename', busy: 'Renaming...', fields: [name],
+    submit: async (d) => {
+      try { await call({ method: 'POST', path: 'files/rename', body: { from: ML.joinPath(dir, entry.name), to: ML.joinPath(dir, name.input.value) } }); } catch (e) { throw new Error(ML.filesErrorText(e.message, 'Could not rename')); }
+      d.close(); toast('Renamed'); load();
+    },
+  });
+  name.input.select();
+}
+
+/* ---------- agent update ---------- */
+// Checking asks GitHub through the agent, so it only runs on a click, never on the 5 second refresh.
+function agentUpdatePanel() {
+  const ML = window.ManageLogic;
+  const u = state.agentUpdate;
+  const run = (fn) => async () => { state.agentUpdate = { busy: true }; load(); try { state.agentUpdate = await fn(); } catch (e) { state.agentUpdate = { error: ML.updateErrorText(e.message, 'Update failed') }; } load(); };
+  const check = run(async () => ({ info: await call({ path: 'agent/update' }) }));
+  const apply = () => confirmDialog('Update the server agent?', 'The agent downloads the newest release and restarts. The app is unreachable for a few seconds.', 'Update',
+    run(async () => {
+      const r = await call({ method: 'POST', path: 'agent/update', body: {} });
+      return { done: r.updated ? `Updated ${r.from} to ${r.to}. The agent is restarting` : 'Already up to date' };
+    }));
+  let text = 'Check whether a newer agent is available.';
+  if (u && u.busy) text = 'Working, keep this window open...';
+  else if (u && u.error) text = u.error;
+  else if (u && u.done) text = u.done;
+  else if (u && u.info) text = ML.updateSummary(u.info);
+  const busy = !!(u && u.busy);
+  return h('div', { class: 'glass bar-tools appear' }, h('div', { class: 'toolbar' },
+    h('div', { class: 'grow', style: 'flex:1' }, h('div', { class: 'name' }, 'Server agent'), h('div', { class: 'meta', role: 'status' }, text)),
+    h('button', { class: 'btn touch', type: 'button', disabled: busy, onclick: check }, 'Check for update'),
+    u && u.info && u.info.available ? h('button', { class: 'btn primary touch', type: 'button', disabled: busy, onclick: apply }, 'Update now') : null));
+}
+
+/* ---------- Windows app update ---------- */
+// Checks GitHub from the main process. The renderer never supplies a URL or a path.
+function winUpdatePanel() {
+  const u = state.winUpdate;
+  const busy = !!(u && u.busy);
+  const info = u && u.info;
+  const setState = (v) => { state.winUpdate = v; load(); };
+  const check = async () => {
+    setState({ busy: 'check' });
+    try {
+      const r = await window.samsung.checkUpdate();
+      if (!r.ok) { setState({ error: r.error }); toast(r.error); return; }
+      setState({ info: r });
+    } catch (e) { const m = 'Could not check for updates'; setState({ error: m }); toast(m); }
+  };
+  const install = async () => {
+    setState({ busy: 'install', info });
+    try {
+      const r = await window.samsung.installUpdate();
+      if (!r.ok) { setState({ error: r.error, info }); toast(r.error); return; }
+      setState({ done: 'Installer started. The app is closing...', info });
+    } catch (e) { const m = 'Update failed'; setState({ error: m, info }); toast(m); }
+  };
+  const ask = () => confirmDialog(`Install version ${info.latest}?`,
+    `The installer is downloaded (${fmtBytes(info.size)}), ${info.verified ? 'checked against its checksum' : 'but its checksum is not published, so it cannot be verified'}, and then started. This app closes while it installs.`,
+    'Download and install', install);
+  let text = 'Check whether a newer version is available.';
+  if (busy) text = u.busy === 'install' ? 'Downloading the installer, keep this window open...' : 'Checking...';
+  else if (u && u.error) text = u.error;
+  else if (u && u.done) text = u.done;
+  else if (info) text = info.available ? `Version ${info.latest} is available (you have ${info.current}).` : `You are up to date (${info.current}).`;
+  const available = !!(info && info.available);
+  return h('div', { class: 'glass bar-tools appear' },
+    h('div', { class: 'toolbar' },
+      h('div', { class: 'grow', style: 'flex:1' },
+        h('div', { class: 'name' }, 'Windows app update ', available ? h('span', { class: 'chip live' }, 'Update available') : null),
+        h('div', { class: 'meta', role: 'status' }, text)),
+      h('button', { class: 'btn touch', type: 'button', disabled: busy, onclick: check }, busy === 'check' ? 'Checking...' : 'Check for update'),
+      available ? h('button', { class: 'btn primary touch', type: 'button', disabled: busy, onclick: ask }, busy === 'install' ? 'Installing...' : 'Download and install') : null),
+    available && info.notes ? h('pre', { class: 'meta', style: 'white-space:pre-wrap;margin:10px 0 0;max-height:160px;overflow:auto;font-family:inherit' }, info.notes) : null,
+    available && !info.verified ? h('div', { class: 'meta', style: 'margin-top:6px' }, 'Unverified: no checksum is published for this installer.') : null);
+}
+
 /* ---------- screens ---------- */
 const screens = {
   async overview() {
@@ -107,32 +384,57 @@ const screens = {
         tone: s.battery.temperature >= 40 ? 'warn' : charging ? 'good' : '', icon: 'battery', grad: 'g-amber' }));
     } else cards.push(stat({ title: 'Battery', value: 'n/a', hint: 'Install Termux:API', icon: 'battery', grad: 'g-amber' }));
     cards.push(stat({ title: 'Uptime', value: fmtDur(s.uptimeSec), hint: 'Since last restart', icon: 'clock', grad: 'g-blue' }));
-    return h('div', { class: 'grid' }, cards);
+    return h('div', { style: 'display:grid;gap:14px' }, h('div', { class: 'grid' }, cards), agentUpdatePanel(), winUpdatePanel());
   },
 
   async files() {
+    const ML = window.ManageLogic;
     const path = state.filesPath;
     const d = await call({ path: 'files/list', query: { path } });
     const up = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
     const mk = h('input', { placeholder: 'New folder name', 'aria-label': 'New folder name' });
+    const mkFolder = () => {
+      const n = mk.value.trim();
+      const bad = ML.validateEntryName(n);
+      if (bad) { toast(bad); return; }
+      act(async () => { try { await call({ method: 'POST', path: 'files/mkdir', body: { path: ML.joinPath(path, n) } }); } catch (e) { throw new Error(ML.filesErrorText(e.message)); } }, 'Folder created');
+    };
+    const uploading = state.uploading;
+    const upload = async () => {
+      state.uploading = true; load();
+      let msg = '';
+      try {
+        const r = await window.samsung.uploadFile(path);
+        if (r.ok) msg = `Uploaded ${r.file} (${fmtBytes(r.size)})`;
+        else if (r.error !== 'cancelled') msg = ML.filesErrorText(r.error, 'Upload failed');
+      } catch (e) { msg = String(e.message).replace(/^Error invoking remote method '[^']*': (Error: )?/, ''); }
+      state.uploading = false;
+      if (msg) toast(msg);
+      load();
+    };
     const rows = (d.entries || []).map((e) => h('div', { class: 'row' },
       e.type === 'dir'
-        ? h('button', { class: 'linkish', onclick: () => { state.filesPath = path ? `${path}/${e.name}` : e.name; load(); } },
+        ? h('button', { class: 'linkish', onclick: () => { state.filesPath = ML.joinPath(path, e.name); load(); } },
           h('span', { class: 'file-ic' }, icon('files')), h('span', { class: 'name' }, e.name))
         : h('div', { class: 'linkish' }, h('span', { class: 'file-ic' }, icon('fileDoc')), h('span', { class: 'name' }, e.name)),
       h('span', { class: 'size' }, e.type === 'dir' ? '' : fmtBytes(e.size)),
-      e.type === 'dir' ? null : h('button', { class: 'btn', onclick: () => act(async () => {
-        const r = await window.samsung.saveFile(path ? `${path}/${e.name}` : e.name);
+      e.type === 'dir' ? null : h('button', { class: 'btn', 'aria-label': `Save ${e.name}`, onclick: () => act(async () => {
+        const r = await window.samsung.saveFile(ML.joinPath(path, e.name));
         if (!r.ok && r.error !== 'cancelled') throw new Error(r.error);
       }) }, 'Save'),
-      h('button', { class: 'btn danger', onclick: () => confirm(`Delete ${e.name}?`) && act(() => call({ method: 'DELETE', path: 'files', query: { path: path ? `${path}/${e.name}` : e.name } }), 'Deleted') }, 'Delete')));
+      h('button', { class: 'btn', 'aria-label': `Rename ${e.name}`, onclick: () => renameDialog(path, e) }, 'Rename'),
+      h('button', { class: 'btn danger', 'aria-label': `Delete ${e.name}`, onclick: () => confirmDialog(`Delete ${e.name}?`,
+        'It moves to the server trash folder, where it is kept for a while before it is removed for good.', 'Delete',
+        () => act(() => call({ method: 'DELETE', path: 'files', query: { path: ML.joinPath(path, e.name) } }), 'Deleted')) }, 'Delete')));
     return h('div', { class: 'stack', style: 'display:grid;gap:14px' },
       h('div', { class: 'glass bar-tools appear' },
         h('div', { class: 'crumbs' }, '/' + path),
         h('div', { class: 'toolbar' },
           path ? h('button', { class: 'btn', onclick: () => { state.filesPath = up; load(); } }, 'Up') : null,
-          mk, h('button', { class: 'btn primary', onclick: () => mk.value.trim() && act(() => call({ method: 'POST', path: 'files/mkdir', body: { path: path ? `${path}/${mk.value.trim()}` : mk.value.trim() } }), 'Folder created') }, 'New folder'))),
-      rows.length ? panel(rows) : emptyPanel('This folder is empty', 'Create a folder to get started.'));
+          h('button', { class: 'btn', type: 'button', disabled: !!uploading, onclick: upload }, uploading ? 'Uploading...' : 'Upload file'),
+          mk, h('button', { class: 'btn primary', onclick: mkFolder }, 'New folder')),
+        uploading ? h('div', { class: 'meta' }, 'Uploading, keep this window open...') : null),
+      rows.length ? panel(rows) : emptyPanel('This folder is empty', 'Upload a file or create a folder to get started.'));
   },
 
   async downloads() {
@@ -158,47 +460,140 @@ const screens = {
 
   async sites() {
     const d = await call({ path: 'sites/list' });
-    if (!d.domain) return empty('Sites are off. Set SITES_DOMAIN on the server (see docs/SETUP.md).');
-    const rows = (d.sites || []).map((s) => h('div', { class: 'row' },
-      h('div', { class: 'grow' }, h('div', { class: 'name' }, s.hostname || s.name), h('div', { class: 'meta' }, `${s.files} files · ${fmtBytes(s.bytes)}`)),
-      h('span', { class: 'pill ' + (s.enabled ? 'ok' : '') }, s.enabled ? 'on' : 'off'),
-      h('button', { class: 'btn', onclick: () => act(async () => {
-        const r = await call({ path: 'sites/check', query: { name: s.name } });
-        toast(r.reachable ? `Reachable (${r.status})` : `Not reachable${r.error ? ': ' + r.error : ''}`);
-      }) }, 'Check')));
-    return rows.length ? panel(rows) : emptyPanel('No sites yet', 'Create one in the Android app.');
+    // Apps routed through the tunnel but not managed here (gym, downloader...). Older agents answer 404, so ignore errors.
+    let others = [];
+    try {
+      const t = await call({ path: 'tunnel/routes' });
+      others = (t.routes || []).filter((r) => r.kind === 'app' && !String(r.hostname).startsWith('*.'));
+    } catch (e) { if (/not allowed/i.test(String(e && e.message))) throw e; /* otherwise an older agent: hide */ }
+    const parts = [];
+    if (!d.domain) {
+      parts.push(emptyPanel('Sites are off', 'Set SITES_DOMAIN on the server (see docs/SETUP.md).'));
+    } else {
+      const SL = window.SitesLogic;
+      const newBtn = () => h('button', { class: 'btn primary touch', type: 'button', onclick: () => newSiteDialog(d.domain) }, 'New site');
+      const siteAct = (fn, okMsg) => act(async () => { try { await fn(); } catch (e) { throw new Error(SL.siteErrorText(e.message)); } }, okMsg);
+      const rows = (d.sites || []).map((s) => {
+        const host = s.hostname || `${s.name}.${d.domain}`;
+        const busy = state.deploying === s.name;
+        const B = (label, extra, fn) => h('button', Object.assign({ class: 'btn touch', type: 'button', disabled: !!state.deploying, onclick: fn }, extra), label);
+        return h('div', { class: 'row site' },
+          h('div', { class: 'grow' },
+            h('div', { class: 'name' }, host),
+            h('div', { class: 'meta' }, busy ? 'Uploading zip, keep this window open...' : `${s.files} files · ${fmtBytes(s.bytes)}${s.spa ? ' · single-page mode' : ''}`)),
+          h('span', { class: 'pill ' + (s.enabled ? 'ok' : '') }, s.enabled ? 'On' : 'Off'),
+          h('div', { class: 'actions' },
+            B('Open', { 'aria-label': `Open ${host} in browser` }, () => window.samsung.openUrl('https://' + host)),
+            B('Check', { 'aria-label': `Check ${host} is reachable` }, () => act(async () => {
+              const r = await call({ path: 'sites/check', query: { name: s.name } });
+              toast(r.reachable ? `Reachable (${r.status})` : `Not reachable${r.error ? ': ' + r.error : ''}`);
+            })),
+            B(busy ? 'Uploading...' : 'Deploy zip', { 'aria-label': `Deploy a zip to ${host}` }, async () => {
+              state.deploying = s.name; load();
+              let msg = '';
+              try {
+                const r = await window.samsung.deploySite(s.name);
+                if (r.ok) msg = `Deployed ${r.data.files ?? ''} files${r.data.bytes != null ? ' (' + fmtBytes(r.data.bytes) + ')' : ''} to ${s.name}`.replace('Deployed  files', 'Deployed');
+                else if (r.error !== 'cancelled') msg = SL.siteErrorText(r.error, 'Deploy failed');
+              } catch (e) { msg = SL.siteErrorText(String(e.message).replace(/^Error invoking remote method '[^']*': (Error: )?/, ''), 'Deploy failed'); }
+              state.deploying = null;
+              if (msg) toast(msg);
+              load();
+            }),
+            B(s.enabled ? 'Turn off' : 'Turn on', { 'aria-label': `${s.enabled ? 'Turn off' : 'Turn on'} ${host}` },
+              () => siteAct(() => call({ method: 'POST', path: 'sites/update', body: { name: s.name, enabled: !s.enabled } }), `${s.name} ${s.enabled ? 'turned off' : 'turned on'}`)),
+            B(s.spa ? 'Single-page: on' : 'Single-page: off', { 'aria-pressed': s.spa ? 'true' : 'false', 'aria-label': `Single-page mode for ${host}` },
+              () => siteAct(() => call({ method: 'POST', path: 'sites/update', body: { name: s.name, spa: !s.spa } }), `Single-page mode ${s.spa ? 'off' : 'on'} for ${s.name}`)),
+            B('Delete', { class: 'btn touch danger', 'aria-label': `Delete ${host}` }, () => deleteSiteDialog(s.name, siteAct))));
+      });
+      parts.push(h('div', { class: 'glass bar-tools appear' }, h('div', { class: 'toolbar' },
+        h('div', { class: 'grow meta', style: 'flex:1' }, `Sites appear at <name>.${d.domain}`), newBtn())));
+      parts.push(rows.length ? panel(rows) : h('div', { class: 'glass panel pad empty appear' },
+        h('h3', {}, 'No sites yet'),
+        h('p', {}, `Create a site, then deploy a zip of your files to it. It will be live at name.${d.domain}.`),
+        h('div', { style: 'margin-top:14px' }, newBtn())));
+    }
+    if (others.length) {
+      parts.push(h('div', { class: 'meta', style: 'margin-top:6px' }, 'Other apps on your tunnel (status only)'));
+      parts.push(panel(others.map((r) => h('div', { class: 'row' },
+        h('div', { class: 'grow' }, h('div', { class: 'name' }, r.hostname), h('div', { class: 'meta' }, r.port ? `Local port ${r.port}` : r.service)),
+        h('span', { class: 'pill ' + (r.up ? 'ok' : '') }, r.up === true ? 'Running' : r.up === false ? 'Not running' : 'Unknown'),
+        h('button', { class: 'btn', onclick: () => window.samsung.openUrl('https://' + r.hostname) }, 'Open')))));
+    }
+    return h('div', { style: 'display:grid;gap:14px' }, ...parts);
   },
 
   async vps() {
+    const ML = window.ManageLogic;
     const d = await call({ path: 'vps/list' });
     if (!d.engine) return empty('The VPS engine is not installed on the server (see agent/README-vps.md).');
-    const rows = (d.items || []).map((v) => {
+    const items = d.items || [];
+    const full = items.length >= (d.maxSlices || 4);
+    const vact = (fn, okMsg) => act(async () => { try { await fn(); } catch (e) { throw new Error(ML.vpsErrorText(e.message)); } }, okMsg);
+    const newBtn = () => h('button', { class: 'btn primary touch', type: 'button', disabled: full, onclick: () => newVpsDialog(d.distros) }, 'New slice');
+    const rows = items.map((v) => {
       const running = v.status === 'running';
-      return h('div', { class: 'row' },
-        h('div', { class: 'grow' }, h('div', { class: 'name' }, v.name || v.id), h('div', { class: 'meta' }, `${v.distroLabel || v.distro} · SSH port ${v.port}${v.step ? ' · ' + v.step : ''}${v.error ? ' · ' + v.error : ''}`)),
+      const creating = v.status === 'creating';
+      const label = v.name || v.id;
+      const resetPw = () => confirmDialog(`Change the password for ${label}?`, 'A new root password is made and the old one stops working. It is shown once.', 'Change password',
+        () => vact(async () => {
+          const r = await call({ method: 'POST', path: 'vps/password', body: { id: v.id } });
+          secretDialog('New root password', `Save it now, it is shown once. It replaces the old password for ${label}.`, r.password);
+        }));
+      return h('div', { class: 'row site' },
+        h('div', { class: 'grow' }, h('div', { class: 'name' }, label),
+          h('div', { class: 'meta' }, `${v.distroLabel || v.distro} · SSH port ${v.port}${v.authMode === 'key' ? ' · key only' : ''}${v.step ? ' · ' + v.step : ''}${v.error ? ' · ' + v.error : ''}`)),
         h('span', { class: 'pill ' + (running ? 'ok' : v.status === 'error' ? 'bad' : '') }, v.status),
-        h('button', { class: 'btn', onclick: () => act(() => call({ method: 'POST', path: running ? 'vps/stop' : 'vps/start', body: { id: v.id } })) }, running ? 'Stop' : 'Start'));
+        h('div', { class: 'actions' },
+          h('button', { class: 'btn touch', type: 'button', disabled: creating, 'aria-label': `${running ? 'Stop' : 'Start'} ${label}`,
+            onclick: () => vact(() => call({ method: 'POST', path: running ? 'vps/stop' : 'vps/start', body: { id: v.id } }), `${label} ${running ? 'stopped' : 'started'}`) }, running ? 'Stop' : 'Start'),
+          v.authMode === 'key' ? null : h('button', { class: 'btn touch', type: 'button', disabled: creating, 'aria-label': `Change password of ${label}`, onclick: resetPw }, 'Change password')));
     });
-    return rows.length ? panel(rows) : emptyPanel('No VPS slices', 'Create one in the Android app.');
+    const head = h('div', { class: 'glass bar-tools appear' }, h('div', { class: 'toolbar' },
+      h('div', { class: 'grow meta', style: 'flex:1' }, `${items.length} of ${d.maxSlices || 4} slices${d.host ? ' · host ' + d.host : ''}${d.freeBytes != null ? ' · ' + fmtBytes(d.freeBytes) + ' free' : ''}`), newBtn()));
+    return h('div', { style: 'display:grid;gap:14px' }, head,
+      rows.length ? panel(rows) : emptyPanel('No VPS slices', 'Create a slice to get your own Linux you can SSH into.'));
   },
 
   async pc() {
+    const ML = window.ManageLogic;
     const d = await call({ path: 'pc/list' });
-    const rows = (d.items || []).map((p) => h('div', { class: 'row' },
-      h('div', { class: 'grow' }, h('div', { class: 'name' }, p.name || p.ip), h('div', { class: 'meta' }, `${p.ip} · ${p.mac}`)),
-      h('span', { class: 'pill ' + (p.online ? 'ok' : '') }, p.online ? 'online' : 'offline'),
-      h('button', { class: 'btn', onclick: () => act(() => call({ method: 'POST', path: 'pc/wake', body: { id: p.id } }), 'Wake signal sent') }, 'Turn on'),
-      p.sshUser ? h('button', { class: 'btn danger', onclick: () => confirm(`Shut down ${p.name || p.ip}?`) && act(() => call({ method: 'POST', path: 'pc/shutdown', body: { id: p.id } }), 'Shutdown sent') }, 'Shut down') : null));
-    return rows.length ? panel(rows) : emptyPanel('No PCs yet', 'Add PCs and set up shutdown in the Android app.');
+    const items = d.items || [];
+    const pact = (fn, okMsg) => act(async () => { try { await fn(); } catch (e) { throw new Error(ML.pcErrorText(e.message)); } }, okMsg);
+    const addBtn = () => h('button', { class: 'btn primary touch', type: 'button', disabled: items.length >= (d.maxPcs || 8), onclick: addPcDialog }, 'Add PC');
+    const rows = items.map((p) => {
+      const label = p.name || p.ip;
+      const B = (text, extra, fn) => h('button', Object.assign({ class: 'btn touch', type: 'button', onclick: fn }, extra), text);
+      return h('div', { class: 'row site' },
+        h('div', { class: 'grow' }, h('div', { class: 'name' }, label),
+          h('div', { class: 'meta' }, `${p.ip} · ${p.mac}${p.sshUser ? ' · user ' + p.sshUser : ''}`)),
+        h('span', { class: 'pill ' + (p.online ? 'ok' : '') }, p.online ? 'online' : 'offline'),
+        h('div', { class: 'actions' },
+          B('Turn on', { 'aria-label': `Turn on ${label}` }, () => pact(() => call({ method: 'POST', path: 'pc/wake', body: { id: p.id } }), 'Wake signal sent')),
+          p.sshUser ? B('Shut down', { class: 'btn touch danger', 'aria-label': `Shut down ${label}` }, () => confirmDialog(`Shut down ${label}?`,
+            'The PC shuts down now. Anything unsaved on it is lost.', 'Shut down',
+            () => pact(() => call({ method: 'POST', path: 'pc/shutdown', body: { id: p.id } }), 'Shutdown sent'))) : null,
+          B(p.sshUser ? 'Shutdown setup' : 'Set up shutdown', { 'aria-label': `Shutdown setup for ${label}` }, () => shutdownSetupDialog(p)),
+          B('Windows user', { 'aria-label': `Set the Windows user for ${label}` }, () => setUserDialog(p)),
+          p.hasLights ? B('Open lights', { 'aria-label': `Open the lights remote for ${label}` }, () => pact(async () => {
+            const r = await window.samsung.openLights(p.id);
+            if (!r.ok) throw new Error(r.error);
+          })) : null,
+          B(p.hasLights ? 'Lights link' : 'Set up lights', { 'aria-label': `Lights link for ${label}` }, () => lightsDialog(p))));
+    });
+    const head = h('div', { class: 'glass bar-tools appear' }, h('div', { class: 'toolbar' },
+      h('div', { class: 'grow meta', style: 'flex:1' }, `${items.length} of ${d.maxPcs || 8} PCs`), addBtn()));
+    return h('div', { style: 'display:grid;gap:14px' }, head,
+      rows.length ? panel(rows) : emptyPanel('No PCs yet', 'Add a PC to wake it from here, then set up shutdown.'));
   },
 };
 
 const TITLES = { overview: 'Overview', files: 'Files', downloads: 'Downloads', sites: 'Sites', vps: 'VPS', pc: 'My PC' };
 const SUBTITLES = {
   overview: 'Live status of your Samsung server', files: 'Browse and manage files on the server', downloads: 'Links, torrents and videos',
-  sites: 'Websites hosted on the phone', vps: 'Linux slices you can SSH into', pc: 'Wake and shut down your PCs',
+  sites: 'Websites hosted on the phone', vps: 'Linux slices you can SSH into', pc: 'Wake, shut down and light up your PCs',
 };
-const state = { tab: 'overview', filesPath: '', shown: null, lastOk: 0 };
+const state = { tab: 'overview', filesPath: '', shown: null, lastOk: 0, deploying: null, uploading: false, agentUpdate: null, winUpdate: null, appVersion: '' };
 let timer;
 
 function setChip(kind, text) {
@@ -282,5 +677,7 @@ async function boot() {
   $('shell').hidden = false; buildNav();
   $('refresh').addEventListener('click', load);
   load();
+  // One quiet check at startup: no dialog, no error toast. A found update shows as a badge on Overview.
+  window.samsung.checkUpdate().then((r) => { if (r && r.ok && !state.winUpdate) { state.winUpdate = { info: r }; if (state.tab === 'overview') load(); } }).catch(() => {});
 }
 boot();
