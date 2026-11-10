@@ -51,3 +51,6 @@ The tunnel `samsung-server` (`cbd9cda3-287b-47b8-a80e-2aee13b537b4`) shows 4 liv
 
 ## Git state
 Branch `main`, clean working tree, in sync with `origin/main`. Last commit `146bf38` "Diagnose 530/1033 tunnel failures, harden installer, find pairing file on Android; release 0.13.5". No stashes. This handoff and the README edits are uncommitted.
+
+## Old files moved (2026-11-10)
+Related files outside the repo now live in `C:\Users\Admin\Desktop\Samsung Server\` (`agent-releases/`, `old-kit/`, `installers/`, with its own README). Everything named s21 was renamed to samsung; name collisions got a `-legacy` suffix. The stale `samsung-server.pair` in Downloads was deleted. Still pending: `Desktop\s21 server\` is locked by the running opengym MCP server (its data path is set in `~/.claude.json` and Claude Desktop's config). The new folder's README has the steps to move it.
