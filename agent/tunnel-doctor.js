@@ -267,7 +267,8 @@ async function main(argv) {
       if (r.name === domain) ok('cert zone is ' + domain);
       else problem('cert.pem is for zone ' + r.name + ', not ' + domain, 'cloudflared tunnel login');
       if (r.status === 'active') ok('zone ' + domain + ' is active');
-      else problem('zone ' + domain + ' status is ' + r.status + ' (not active)', 'Set the registrar nameservers to: ' + (r.name_servers || []).join(', '));
+      else problem('zone ' + domain + ' status is ' + r.status + ' (not active): this login owns an unused copy of the domain',
+        'Run: mv ~/.cloudflared/cert.pem ~/.cloudflared/cert.pem.old && cloudflared tunnel login, and sign in to the Cloudflare account whose ' + domain + ' zone is Active. Then delete the ' + r.status + ' copy in the other account. Change registrar nameservers only if you want to move the domain to this copy.');
       const d = await timedJson(globalThis.fetch, 'https://cloudflare-dns.com/dns-query?name=' + encodeURIComponent(domain) + '&type=NS',
         { headers: { accept: 'application/dns-json' } });
       if (d && Array.isArray(d.Answer) && Array.isArray(r.name_servers) && r.name_servers.length) {
@@ -275,7 +276,7 @@ async function main(argv) {
         const want = r.name_servers.map((s) => s.toLowerCase());
         if (live.length && !live.every((n) => want.includes(n))) {
           problem('public nameservers (' + live.join(', ') + ') differ from this zone (' + want.join(', ') + '): another copy of the zone may be active',
-            'Set the registrar nameservers to: ' + want.join(', '));
+            'The live zone uses ' + live.join(', ') + '. Run: mv ~/.cloudflared/cert.pem ~/.cloudflared/cert.pem.old && cloudflared tunnel login, sign in to the Cloudflare account that shows those nameservers for ' + domain + ', then rerun this tool. Do not change registrar nameservers unless you mean to move the domain.');
         } else if (live.length) ok('public nameservers match the zone');
       }
     }
